@@ -1,7 +1,7 @@
 # slackAskBot
 Use GPT-3 to do semantic search over exported Slack messages to find answers to questions about previously discussed topics
 
-SlackAskBot is a project that uses natural language processing (NLP) to search through a given dataset for messages that are similar to a given search string. It uses OpenAI's text-embedding-ada-002 engine to generate embeddings for the search string and the messages in the dataset, and then uses cosine similarity to find the most similar messages. It then prints out the top n results, and uses OpenAI's text-davinci-003 engine to generate a summary of the context and answer the question.
+slackAskBot is a project that uses natural language processing (NLP) to search through a given dataset for messages that are similar to a given search string. It uses OpenAI's text-embedding-ada-002 engine to generate embeddings for the search string and the messages in the dataset, and then uses cosine similarity to find the most similar messages. It then prints out the top n results, and uses OpenAI's text-davinci-003 engine to generate a summary of the context and answer the question.
 
 ## Getting Started
 
