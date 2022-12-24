@@ -27,8 +27,13 @@ cd slackAskBot
 
 ## Usage
 
-The project consists of several scripts that can be used to process data and generate embeddings.
-They should be generally be used in the following order:
+
+If you're a Slack workspace or org Owner/Admin, you can export your Slack history by following the steps at https://slack.com/help/articles/201658943-Export-your-workspace-data
+If you're not a Slack admin, you can ask an admin to export only your Slack history.
+
+Once you've got a Slack export, the following scripts can be used to perform all the necessary processing to filter out just the Slack messages and generate and store (as files) the semantic search embeddings required to search for the content most relevant to the search inquiry. They should be generally be used in the order listed below.
+
+Once you've done all the initial processing on your Slack export, you can simply run `search.py everything.json "your topical inquiry or question"` and it will find the most relevant results, and ask InstructGPT to use them to summarize the context most relevant to your inquiry and answer any explicit question you asked.
 
 ### process_slack_export.py
 
