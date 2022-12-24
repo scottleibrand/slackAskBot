@@ -2,11 +2,8 @@
 
 """
 This script extracts messages with "type": "message" from a JSON file and writes them to a new JSON file.
-
 It takes two command-line arguments: the input file path and the output file path.
-
 The script opens the input file and reads the JSON data. It then extracts the messages with "type": "message" and stores them in a list.
-
 It then writes them out in a compact pretty-printed format that is valid json with newlines for readability.
 """
 
