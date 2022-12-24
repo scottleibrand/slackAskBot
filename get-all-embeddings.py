@@ -1,3 +1,14 @@
+"""
+Process files in an input directory and get embeddings using OpenAI Text Embedding API, writing the embeddings to an output directory.
+
+This script takes an input directory and an output directory as command-line arguments
+and processes all the files in the input directory.
+For each file, it gets the embedding using the OpenAI Text Embedding API
+and writes the embedding to an identically named file in the output directory.
+If the line is longer than 8000 tokens, it will split the line into chunks
+of <8000 tokens and write each chunk to its own file.
+"""
+
 import openai
 from openai.embeddings_utils import get_embedding
 import sys
