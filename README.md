@@ -60,6 +60,11 @@ This script combines data from two different JSON files into one output file. It
 
 This script searches through a given dataset for messages that are similar to a given search string. It uses OpenAI's text-embedding-ada-002 engine to generate embeddings for the search string and the messages in the dataset, and then uses cosine similarity to find the most similar messages. It then prints out the top n results, and uses OpenAI's text-davinci-003 engine to generate a summary of the context and answer the question.
 
+## Future work
+ - Make a Slack bot that runs search.py
+ - Orchestrate all the above scripts to run all of the necessary preprocessing on a Slack export
+ - Figure out how to extend this to Discord
+
 ## Contributing
 
 If you would like to contribute to the project, please open a pull request.
