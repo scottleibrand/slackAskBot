@@ -1,6 +1,7 @@
 
 """
-This script splits large files of data into smaller parts based on the number of tokens in each part.
+This script combines multiple small files of messages into one file.
+It splits large files of data into smaller parts based on the number of tokens in each part.
 It takes in data from the 'trimmed' directory and splits it into parts with a maximum of 1000 tokens each.
 The parts are then written to the 'combined' directory.
 The script also combines multiple files into one if the total number of tokens is less than 1000.
