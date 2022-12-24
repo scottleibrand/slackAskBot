@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 
+"""
+Combine data and embeddings into a single JSON file.
+
+This script combines data from two different JSON files into one output file.
+It takes three arguments: `data_dir`, `embeddings_dir`, and `output_file`.
+It iterates over the subdirectories in the `data_dir` and looks for JSON files.
+It then reads the data from the JSON files and checks for an embeddings file in the `embeddings_dir` with the same name.
+If the embeddings file is found, it is added to the data JSON.
+All the data is then written to the `output_file` in a pretty-printed format.
+"""
+
 import os
 import json
 import csv
