@@ -1,7 +1,11 @@
 import json
 import sys
 
-"""This script processes a Slack export file and extracts the messages with "type": "message". It takes two command-line arguments: the input file path and the output file path. It reads the input file as JSON, extracts the messages, and writes them as JSON to the output file."""
+"""
+This script processes a Slack export file and extracts the messages with "type": "message".
+It takes two command-line arguments: the input file path and the output file path.
+It reads the input file as JSON, extracts the messages, and writes them as JSON to the output file.
+"""
 
 # Check that the correct number of command-line arguments were provided
 if len(sys.argv) != 3:
