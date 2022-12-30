@@ -39,7 +39,7 @@ def main(query, num_results=20, best_of_n=3):
         for context in result:
             context_string = ''
             for message in context:
-                print(message['text'])
+                #print(message['text'])
                 context_string += message['text'] + "\n"
             #print(context_string)
 
@@ -52,6 +52,11 @@ def main(query, num_results=20, best_of_n=3):
             contexts.append(context_string)
             embeddings.append(embedding)
             #print(len(embeddings))
+
+    # If there are no results, return None
+    #if typeof(all_results) == 'NoneType' or len(all_results) == 0:
+    if all_results == [] or all_results == None:
+        return None, None, None
 
     # Search the embeddings for the search term
     df = semantic_search(all_results, contexts, embeddings, query)

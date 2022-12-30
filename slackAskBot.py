@@ -8,8 +8,7 @@ import threading
 
 # Install the Slack app and get xoxb- token in advance
 app = App(
-    token=os.environ["SLACK_BOT_TOKEN"],
-    signing_secret=os.environ["SLACK_SIGNING_SECRET"]
+    token=os.environ["SLACK_BOT_TOKEN"]
 )
 
 def handle_search_request(text, user_id):
@@ -20,9 +19,10 @@ def handle_search_request(text, user_id):
     def worker():
         answers, permalinks, timestamps = search_with_slack_api(text)
         print(f"answers: {answers}")
-        if len(answers) == 0:
+        if answers is None or len(answers) == 0:
             response = "Sorry, I couldn't find any answers."
             app.client.chat_postMessage(channel=user_id, text=response)
+            return
         # Interleave the answers and permalinks
         response = "Here are some answers I found:\n"
         for answer, permalink in zip(answers, permalinks):
