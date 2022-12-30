@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import datetime
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import openai
@@ -11,27 +12,15 @@ import numpy as np
 
 
 
-def main():
+def main(query, num_results=20, best_of_n=3):
     botclient, userclient, channels = slack_api_setup()
 
-    # Get the search query from the command-line argument
-    if len(sys.argv) < 2:
-        # Print usage help if no search query is provided
-        print("Usage: python search_script.py <search_query> [num_results]")
-        sys.exit(1)
-    else:
-        query = sys.argv[1]
-
-    # Get the number of results to return
-    if len(sys.argv) > 2:
-        num_results = int(sys.argv[2])
-    else:
-        num_results = 1
-
+    
     # Call the search function to get the results
     results = search(query, userclient, channels, num_results)
 
     # For each result, get the surrounding context
+    all_results = []
     results_context = []
     for result in results:
         # Check that result is not None
@@ -40,6 +29,7 @@ def main():
         #print(result)
         #print(result[0]['text'])
         result_context = get_message_context(result, channels, userclient)
+        all_results.append(result)
         results_context.append(result_context)
     
     # Get embeddings for each result and its surrounding context
@@ -49,7 +39,7 @@ def main():
         for context in result:
             context_string = ''
             for message in context:
-                #print(message['text'])
+                print(message['text'])
                 context_string += message['text'] + "\n"
             #print(context_string)
 
@@ -64,10 +54,12 @@ def main():
             #print(len(embeddings))
 
     # Search the embeddings for the search term
-    df = semantic_search(contexts, embeddings, query)
-    contextualize_results(df, query)
+    df = semantic_search(all_results, contexts, embeddings, query)
+    #contextualize_results(df, query, best_of_n)
+    answers, permalinks, timestamps = contextualize_results(df, query, best_of_n)
+    return answers, permalinks, timestamps
 
-def semantic_search(contexts, embeddings, query):
+def semantic_search(all_results, contexts, embeddings, query):
     # Get the embedding for the search term
     query_embedding = openai.embeddings_utils.get_embedding(
         query,
@@ -78,12 +70,22 @@ def semantic_search(contexts, embeddings, query):
 
     # Create a dictionary containing results and embeddings
     data = {}
-    # Print length of contexts and embeddings
+    # Print length of results, contexts and embeddings
+    print("Length of results: " + str(len(all_results[0])))
     print("Length of contexts: " + str(len(contexts)))
     print("Length of embeddings: " + str(len(embeddings)))
-    data['results'] = contexts
+    #print(all_results[0])
+    data['results'] = all_results[0]
+    data['contexts'] = contexts
     data['embeddings'] = embeddings
     
+    # Get the length of the shortest list
+    n = min(len(data['results']), len(data['contexts']), len(data['embeddings']))
+    # Truncate all lists to the same length
+    data['results'] = data['results'][:n]
+    data['contexts'] = data['contexts'][:n]
+    data['embeddings'] = data['embeddings'][:n]
+
 
     # load the data from the embeddings variable into a pandas dataframe
     df = pd.DataFrame(data)
@@ -101,14 +103,14 @@ def semantic_search(contexts, embeddings, query):
 
     return df
 
-def contextualize_results(df, query):
+def contextualize_results(df, query, best_of_n):
     
-    n=2
+    n=best_of_n
 
-    res = (
+    contexts = (
         df.sort_values("similarities", ascending=False)
         .head(n)
-        .results
+        .contexts
         # Get all the elements of the list
         .apply(lambda x: x)
     )
@@ -116,34 +118,80 @@ def contextualize_results(df, query):
     #print(res)
     #return res
     #if pprint:
-    for result in res:
+    answers = []
+    permalinks = []
+    timestamps = []
+    for context in contexts:
 
-        results_string = json.dumps(result)
+        context_string = json.dumps(context)
         
         # Get the token length of the string
         enc = tiktoken.get_encoding("gpt2")
-        tokens = enc.encode(results_string)
+        tokens = enc.encode(context_string)
         token_count = len(tokens)
         # print the length of the string in characters and tokens
         #print("String length: " + str(len(results_string)) + " characters, "Token count: " + str(token_count))
-        print(f"String length: {len(results_string)} characters, Token count: {token_count}")
+        print(f"String length: {len(context_string)} characters, Token count: {token_count}")
 
+        # If the token count is greater than 3000, remove the last 1000 characters until the token count is less than 3000
+        while token_count > 3000:
+            context_string = context_string[:-1000]
+            tokens = enc.encode(context_string)
+            token_count = len(tokens)
+            print(f"String length: {len(context_string)} characters, Token count: {token_count}")
+
+
+        # Get the index of the current context in the dataframe
+        index = df[df['contexts'] == context].index[0]
+
+        # Print the timestamp
+        # Get the unix time from the ts field of the corresponding results object and convert it to a datetime object
+        print(df.loc[index, 'results']['ts'])
+        timestamp = datetime.datetime.utcfromtimestamp(float(df.loc[index, 'results']['ts']))
         
+        
+        print(timestamp)
+        timestamps.append(timestamp)
 
-        prompt = "Given the following context:\n" + results_string + \
+        prompt = "Given the following context:\n" + context_string + \
             "\nIf the context is not relevant to the question, reply with 'The context is not relevant to the question.'\n" +\
-            "Question: " + query + "\nOtherwise, answer the question and provide a quote or summarization from the context to support your answer."
+            "Question: " + query + "\nOtherwise, answer the question and provide a quote or summarization from the context to support your answer.\n"
         #print(prompt)
         #return
-        answer = ask_gpt(results_string, prompt)
-        print(answer)    
+        answer = ask_gpt(context_string, prompt)
+        
+        print(answer)
+        answers.append(answer)
+        #print(json.dumps(df["results"]))
+        #print(context_string)    
+
+        # Get the value of the "permalink" key for the corresponding results object
+        permalink = df.loc[index, 'results']['permalink']
+        
+
+        # Print the permalink
+        print(permalink)
+        permalinks.append(permalink)
+
+    return answers, permalinks, timestamps
+        
+    # Get GPT-3 to choose the best of its previous answers
+    prompt = "Given the following" + str(n) + " answers to the question '" + query + "':\n" + \
+        "\n".join([f"{i+1}. {answers[i]} ({timestamps[i]})" for i in range(n)]) + "\n" + \
+        "which answer is the most recent, most relevant to the question, and/or most consistent with the overall context?\n" + \
+        "Please provide a quote or summarization from the context to support your answer."
+    print(prompt)
+    answer = ask_gpt(context_string, prompt)
+    print(answer)
+
 
 def search(query, userclient, channels, num_results):
     search_terms_tried = []
     results = []
-    # As long as there are no results, keep trying to search until we have tried num_results times
+    max_tries = 3
+    # As long as there are no results, keep trying to search until we have tried max_tries times
     search_tries = 0
-    while len(results) == 0 or results[len(results)-1] == [] and search_tries < num_results:
+    while len(results) == 0 or results[len(results)-1] == [] and search_tries < max_tries:
         # Call the get_search_terms function to get the search terms
         if len(search_terms_tried) > 0:
             print ("No results found. Trying again with more general search terms.")
@@ -292,8 +340,9 @@ def perform_search(query, userclient, num_results):
 
         response = userclient.search_messages(
             query=query,
-            sort="timestamp",
-            sort_dir="asc",
+            sort="score",
+            sort_dir="desc",
+            exclude_bot_users=True,
             #channel=channel,
             count=num_results
         )
@@ -314,4 +363,23 @@ def perform_search(query, userclient, num_results):
         print("Error: {}".format(e))
 
 if __name__ == "__main__":
-    main()
+
+    # Get the search query from the command-line argument
+    if len(sys.argv) < 2:
+        # Print usage help if no search query is provided
+        print("Usage: python search_script.py <search_query> [num_results]")
+        sys.exit(1)
+    else:
+        query = sys.argv[1]
+
+    # Get the number of results to return and best-of-n count, if provided
+    if len(sys.argv) > 2:
+        num_results = int(sys.argv[2])
+    else:
+        num_results = 1
+    if len(sys.argv) > 3:
+        best_of_n = int(sys.argv[3])
+    else:
+        best_of_n = 1
+
+    main(query, num_results, best_of_n)
