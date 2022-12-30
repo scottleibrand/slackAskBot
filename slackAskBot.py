@@ -113,46 +113,6 @@ def app_home_opened(ack, event, logger):
     )
     logger.info(response)
 
-                    
-# The open_modal shortcut opens a plain old modal
-# Shortcuts require the command scope
-@app.shortcut("open_modal")
-def open_modal(ack, shortcut, client, logger):
-    # Acknowledge shortcut request
-    ack()
-
-    try:
-        # Call the views.open method using the WebClient passed to listeners
-        result = client.views_open(
-            trigger_id=shortcut["trigger_id"],
-            view={
-                "type": "modal",
-                "title": {"type": "plain_text", "text": "My App"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": "About the simplest modal you could conceive of :smile:\n\nMaybe <https://api.slack.com/reference/block-kit/interactive-components|*make the modal interactive*> or <https://api.slack.com/surfaces/modals/using#modifying|*learn more advanced modal use cases*>.",
-                        },
-                    },
-                    {
-                        "type": "context",
-                        "elements": [
-                            {
-                                "type": "mrkdwn",
-                                "text": "Psssst this modal was designed using <https://api.slack.com/tools/block-kit-builder|*Block Kit Builder*>",
-                            }
-                        ],
-                    },
-                ],
-            },
-        )
-        logger.info(result)
-
-    except SlackApiError as e:
-        logger.error("Error creating conversation: {}".format(e))
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
