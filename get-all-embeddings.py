@@ -14,6 +14,8 @@ from openai.embeddings_utils import get_embedding
 import sys
 import os
 import tiktoken
+import argparse
+
 
 def get_embeddings_old(input_file, output_file):
     # Open the input file for reading and the output file for writing
@@ -55,47 +57,90 @@ def get_embeddings(input_file, output_file):
                 with open(output_file, 'w') as output_f:
                     output_f.write(str(embedding) + '\n')
 
-# Check that the correct number of command-line arguments were provided
-if len(sys.argv) < 3:
-    print('Usage: python get_embeddings.py input_dir output_dir [subdirs]')
-    sys.exit(1)
+def main():
+    import argparse
+    import glob
+    import os
 
-# Get the input and output directory paths from the command-line arguments
-input_dir = sys.argv[1]
-output_dir = sys.argv[2]
+    # Create an argument parser
+    parser = argparse.ArgumentParser()
 
-# Create the output directory if it does not exist
-if not os.path.exists(output_dir):
-    os.mkdir(output_dir)
+    # Add the required input and output directory arguments
+    parser.add_argument('input_dir', help='The input directory path')
+    parser.add_argument('output_dir', help='The output directory path')
 
-# Get the subdirectory names from the command-line arguments, or use all subdirectories if none provided
-subdirs = sys.argv[3:]
-if not subdirs:
-    subdirs = os.listdir(input_dir)
+    # Add the optional --subdir or --file flag and pattern arguments
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--subdir', help='A glob pattern for matching subdirectories')
+    group.add_argument('--file', help='A glob pattern for matching files')
 
-# Iterate over all the subdirectories in the input directory
-for root, dirs, files in sorted(os.walk(input_dir)):
-    # Only process subdirectories with the provided names, or all subdirectories if none provided
-    dirname = os.path.basename(root)
-    if subdirs and dirname not in subdirs:
-        continue
-    # Create the same subdirectories in the output directory
-    subdir = root.replace(input_dir, output_dir)
-    if not os.path.exists(subdir):
-        os.mkdir(subdir)
-    # Iterate over all the files in the subdirectory
-    for file in sorted(files):
-        input_file = os.path.join(root, file)
-        output_file = os.path.join(subdir, file)
-        # Skip the file if the output file already exists and is more than 0 bytes
-        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
-            print(f'Skipping {subdir}/{file} because output file already exists')
-            continue
-        # Skip the file if a chunk of the output file already exists
-        if os.path.exists(output_file + "-chunk-1"):
-            print(f'Skipping {subdir}/{file} because output file chunks already exist')
-            continue
-        # Print the file name
-        print(f'Processing {subdir}/{file}')
-        # Process the file and write the output to an identically named file in the output subdirectory
-        get_embeddings(input_file, output_file)
+    # Parse the command-line arguments
+    args = parser.parse_args()
+
+    # Get the input and output directory paths from the command-line arguments
+    input_dir = args.input_dir
+    output_dir = args.output_dir
+
+    # Create the output directory if it does not exist
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
+    # Initialize empty list for subdirectories or files to process
+    subdirs_or_files = []
+
+    # Check if the --subdir or --file flag was provided
+    if args.subdir:
+        # Use glob to match the subdirectory pattern
+        subdirs_or_files = glob.glob(os.path.join(input_dir, args.subdir))
+    elif args.file:
+        # Iterate over all the subdirectories in the input directory
+        for root, dirs, files in sorted(os.walk(input_dir)):
+            # Use glob to match the file pattern for each subdirectory
+            file_matches = glob.glob(os.path.join(root, args.file))
+            # Add the matching files to the list of subdirectories or files to process
+            subdirs_or_files.extend(file_matches)
+
+    # Iterate over all the subdirectories or files in the input directory
+    for item in sorted(subdirs_or_files):
+        # Check if the item is a file or a subdirectory
+        if os.path.isfile(item):
+            # Process the file and write the output to an identically named file in the output directory
+            input_file = item
+            file = os.path.basename(item)
+            output_file = os.path.join(output_dir, file)
+            # Skip the file if the output file already exists and is more than 0 bytes
+            if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                print(f'Skipping {item} because output file already exists')
+                continue
+            # Skip the file if a chunk of the output file already exists
+            if os.path.exists(output_file + "-chunk-1"):
+                print(f'Skipping {item} because output file chunks already exist')
+                continue
+            # Print the file name
+            print(f'Processing {item}')
+            get_embeddings(input_file, output_file)
+        else:
+            # Create the same subdirectories in the output directory
+            subdir = item.replace(input_dir, output_dir)
+            if not os.path.exists(subdir):
+                os.mkdir(subdir)
+            # Iterate over all the files in the subdirectory
+            print(f'Processing {subdir}')
+            for file in sorted(os.listdir(item)):
+                input_file = os.path.join(item, file)
+                output_file = os.path.join(subdir, file)
+                # Skip the file if the output file already exists and is more than 0 bytes
+                if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                    print(f'Skipping {subdir}/{file} because output file already exists')
+                    continue
+                # Skip the file if a chunk of the output file already exists
+                if os.path.exists(output_file + "-chunk-1"):
+                    print(f'Skipping {subdir}/{file} because output file chunks already exist')
+                    continue
+                # Print the file name
+                print(f'Processing {subdir}/{file}')
+                # Process the file and write the output to an identically named file in the output subdirectory
+                get_embeddings(input_file, output_file)
+
+if __name__ == '__main__':
+    main()
