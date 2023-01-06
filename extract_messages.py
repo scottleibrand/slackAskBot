@@ -43,3 +43,4 @@ if messages:
         json_string = json.dumps(messages, indent=4)
         json_string_with_fewer_newlines = json_string.replace(',\n        ', ', ').replace('{\n        ','{ ').replace('\n    }', ' }')
         f.write(json_string_with_fewer_newlines.replace('    {','{'))
+        print(f"Finished writing {len(messages)} messages to {output_file}")
