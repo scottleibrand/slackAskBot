@@ -1,4 +1,5 @@
 import os
+import re
 from search_with_slack_api import main as search_with_slack_api
 
 from slack_bolt import App
@@ -12,6 +13,8 @@ app = App(
 )
 
 def handle_search_request(text, user_id):
+    #Remove any @mentions from the query
+    text = re.sub(r'<@\w+>', '', text)
     # Send a message to indicate that the app is working on the request
     app.client.chat_postMessage(channel=user_id, text=f"{text}... Let me see what I can find...")
 
@@ -25,8 +28,11 @@ def handle_search_request(text, user_id):
             return
         # Interleave the answers and permalinks
         response = "Here are some answers I found:\n"
-        for answer, permalink in zip(answers, permalinks):
-            response += f"Based on {permalink}, it appears that: {answer}\n"
+        for answer, permalink, timestamp in zip(answers, permalinks, timestamps):
+            #response += f"Based on {permalink}, it appears that: {answer}\n"
+            #Extract only the date from the timestamp (format: 2022-12-01 09:36:53.549539)
+            timestamp = str(timestamp).split()[0]
+            response += f"It appears that as of {timestamp}: {answer} - {permalink}\n"
             # Send the response back to the user
             app.client.chat_postMessage(channel=user_id, text=response)
             response = ""
