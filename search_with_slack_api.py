@@ -12,12 +12,12 @@ import pandas as pd
 import numpy as np
 
 
-def main(query, num_results=20, best_of_n=3):
+def main(query, num_results=50, best_of_n=3):
     botclient, userclient, channels = slack_api_setup()
 
-    
+    print(query)
     # Call the search function to get the results
-    results = search(query, userclient, channels, num_results)
+    search_terms, results = search(query, userclient, channels, num_results)
 
     # For each result, get the surrounding context
     all_results = []
@@ -29,6 +29,7 @@ def main(query, num_results=20, best_of_n=3):
         #print(result)
         #print(result[0]['text'])
         result_context = get_message_context(result, channels, userclient)
+        #print(f"result_context for {result}: {result_context}")
         all_results.append(result)
         results_context.append(result_context)
     
@@ -45,6 +46,15 @@ def main(query, num_results=20, best_of_n=3):
 
             if context_string == '':
                 continue
+            # while context_string is more than 8000 tokens, remove the last 1000 characters and try again
+            enc = tiktoken.get_encoding("gpt2")
+            tokens = enc.encode(context_string)
+            line_token_count = len(tokens)
+            while line_token_count > 8000:
+                context_string = context_string[:-1000]
+                tokens = enc.encode(context_string)
+                line_token_count = len(tokens)
+
             embedding = openai.embeddings_utils.get_embedding(
                 context_string,
                 engine="text-embedding-ada-002"
@@ -59,10 +69,11 @@ def main(query, num_results=20, best_of_n=3):
         return None, None, None
 
     # Search the embeddings for the search term
+    print(contexts)
     df = semantic_search(all_results, contexts, embeddings, query)
     #contextualize_results(df, query, best_of_n)
     answers, permalinks, timestamps = contextualize_results(df, query, best_of_n)
-    return answers, permalinks, timestamps
+    return search_terms, answers, permalinks, timestamps
 
 def semantic_search(all_results, contexts, embeddings, query):
     # Get the embedding for the search term
@@ -224,7 +235,7 @@ def search(query, userclient, channels, num_results):
         search_terms_tried.append(search_terms)
         search_tries += 1
         print(search_terms_tried)
-    return results
+    return search_terms_tried, results
 
 def get_message_context(messages, channels, userclient):
     # Create a list to store the messages' context
@@ -232,13 +243,15 @@ def get_message_context(messages, channels, userclient):
     # Iterate over the messages
     for message in messages:
         # Look up the message channel in the channels list
-        channel = next((channel for channel in channels if channel["id"] == message["channel"]["id"]), None)
+        #channel = next((channel for channel in channels if channel["id"] == message["channel"]["id"]), None)
+        channel = message["channel"]
         if channel is None:
+            print(".", end="")
             continue
         # Print the channel name and message text
         #print(message)
         #print("#" + channel["name"], message["text"])
-        print(message['text'])
+        #print(f"#{channel['name']} {message['text']}")
 
         # Retrieve all other messages in the channel up to 1 hour before and 24h after the current message
         date = int(message["ts"].split(".")[0])
@@ -268,8 +281,9 @@ def slack_api_setup():
     userclient = WebClient(token=user_token)
 
     try:
-        # Call the conversations.list method using the WebClient
-        response = botclient.conversations_list()
+        # Call the conversations.list method using the WebClient, with a limit of 1000 non-archived channels
+        response = botclient.conversations_list(limit=1000, exclude_archived=True)
+        #response = botclient.conversations_list()
         channels = response["channels"]
 
         # Print the names of all channels in the team
@@ -359,6 +373,10 @@ def perform_search(query, userclient, num_results):
         #print(response["messages"])
         messages = response["messages"]["matches"]
         print(f"Found {len(messages)} results for query: {query}.")
+        # Filter out private messages, which are in the response["messages"]["matches"] array whose channel: { "is_private": true }
+        messages = [message for message in messages if message["channel"]["is_private"] == False]
+        print(f"Found {len(messages)} public channel results for query: {query}.")
+
         return messages
         #print(messages)
         #for message in messages:
