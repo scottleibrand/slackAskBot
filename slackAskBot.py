@@ -20,14 +20,17 @@ def handle_search_request(text, user_id):
 
     # Create a worker thread to perform the search and send the results
     def worker():
-        answers, permalinks, timestamps = search_with_slack_api(text)
+        search_terms, answers, permalinks, timestamps = search_with_slack_api(text)
         print(f"answers: {answers}")
         if answers is None or len(answers) == 0:
             response = "Sorry, I couldn't find any answers."
             app.client.chat_postMessage(channel=user_id, text=response)
             return
         # Interleave the answers and permalinks
-        response = "Here are some answers I found:\n"
+        # Convert the search_terms list to a string
+        search_terms = "\n".join(search_terms)
+        response = "Here are some answers I found by searching for:\n" + \
+            search_terms + "\n"
         for answer, permalink, timestamp in zip(answers, permalinks, timestamps):
             #response += f"Based on {permalink}, it appears that: {answer}\n"
             #Extract only the date from the timestamp (format: 2022-12-01 09:36:53.549539)
