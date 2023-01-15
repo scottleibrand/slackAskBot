@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import datetime
+import re
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import openai
@@ -9,7 +10,6 @@ from openai.embeddings_utils import get_embedding, cosine_similarity
 import tiktoken
 import pandas as pd
 import numpy as np
-
 
 
 def main(query, num_results=20, best_of_n=3):
@@ -159,7 +159,7 @@ def contextualize_results(df, query, best_of_n):
         timestamps.append(timestamp)
 
         prompt = "Given the following context:\n" + context_string + \
-            "\nIf the context is not relevant to the question, reply with 'The context is not relevant to the question.'\n" +\
+            "\nIf the context is not relevant to the question, reply with 'This may be related, but I'm not sure whether it answers your question.'\n" +\
             "Question: " + query + "\nOtherwise, answer the question and provide a quote or summarization from the context to support your answer.\n"
         #print(prompt)
         #return
@@ -193,7 +193,7 @@ def contextualize_results(df, query, best_of_n):
 def search(query, userclient, channels, num_results):
     search_terms_tried = []
     results = []
-    max_tries = 3
+    max_tries = 5
     # As long as there are no results, keep trying to search until we have tried max_tries times
     search_tries = 0
     while len(results) == 0 or results[len(results)-1] == [] and search_tries < max_tries:
@@ -238,7 +238,7 @@ def get_message_context(messages, channels, userclient):
         # Print the channel name and message text
         #print(message)
         #print("#" + channel["name"], message["text"])
-        #print(message['text'])
+        print(message['text'])
 
         # Retrieve all other messages in the channel up to 1 hour before and 24h after the current message
         date = int(message["ts"].split(".")[0])
@@ -293,12 +293,14 @@ def get_search_terms(query, previous_search_terms=None):
             prompt = f"Please generate one or more Slack search string(s) for the following question: {query}.\n \
                 Please return each search string on a separate line, without quotes or other punctuation.\n \
                 You already tried:\n{previous_search_terms}\n \
-                and that returned no results. Please try a more general search that will return more results.\n"
+                and that returned no results. Please try a more general, less specific search that will return more results.\n"
         else:
             # Use GPT to generate good Slack search terms for the question
             prompt = f"Please generate one or more Slack search string(s) for the following question: {query}.\n \
                 Please return each search string on a separate line, without quotes or other punctuation.\n"
         search_terms = ask_gpt(text=query, prompt=prompt)
+        #Remove any @mentions from the search terms
+        search_terms = re.sub(r'@\w+', '', search_terms)
         print(f"Search terms: {search_terms}")
         return search_terms
     else:
