@@ -66,7 +66,7 @@ def main(query, num_results=50, best_of_n=3):
     # If there are no results, return None
     #if typeof(all_results) == 'NoneType' or len(all_results) == 0:
     if all_results == [] or all_results == None:
-        return None, None, None
+        return None, None, None, None
 
     # Search the embeddings for the search term
     print(contexts)
@@ -357,8 +357,6 @@ def perform_search(query, userclient, num_results):
     try:
         # Call the search.messages method using the WebClient
 
-
-
         response = userclient.search_messages(
             query=query,
             sort="score",
@@ -370,12 +368,21 @@ def perform_search(query, userclient, num_results):
 
         print(f"Search results for query: {query}, max results: {num_results}")
         # Print the results
+        #print(response)
         #print(response["messages"])
         messages = response["messages"]["matches"]
         print(f"Found {len(messages)} results for query: {query}.")
         # Filter out private messages, which are in the response["messages"]["matches"] array whose channel: { "is_private": true }
         messages = [message for message in messages if message["channel"]["is_private"] == False]
         print(f"Found {len(messages)} public channel results for query: {query}.")
+
+        # Get the bot's user ID
+        bot_info = userclient.auth_test()
+        bot_user_id = bot_info['user_id']
+        print("The bot's user ID is: ", bot_user_id)
+        # Filter out the bot's own messages
+        messages = [message for message in messages if message["user"] != bot_user_id]
+        print(f"Found {len(messages)} public channel results with the bot excluded, for query: {query}.")
 
         return messages
         #print(messages)
