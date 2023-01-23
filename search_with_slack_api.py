@@ -10,6 +10,7 @@ from openai.embeddings_utils import get_embedding, cosine_similarity
 import tiktoken
 import pandas as pd
 import numpy as np
+from langchain.llms import OpenAI
 
 
 def main(query, num_results=50, best_of_n=3):
@@ -319,6 +320,23 @@ def get_search_terms(query, previous_search_terms=None):
         return search_terms
     else:
         return query
+
+def ask_llm(text, prompt, model="text-davinci-003", max_tokens=3000, temperature=0):
+    # Get the API key from the environment variable
+    api_key = os.environ["OPENAI_API_KEY"]
+    openai.api_key = api_key
+
+    # Set the max token count for the summary
+    if model == "text-davinci-003":
+        max_tokens = 1000
+    else:
+        max_tokens = 500
+    
+    llm = OpenAI(model_name=model, temperature=temperature, max_tokens=max_tokens)
+
+    output = llm(prompt)
+
+    return output
 
 def ask_gpt(text, prompt, model="text-davinci-003", max_tokens=3000):
     # Get the API key from the environment variable
