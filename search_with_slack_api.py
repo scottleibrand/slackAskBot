@@ -77,11 +77,6 @@ def main(query, num_results=50, best_of_n=3):
     return search_terms, answers, permalinks, timestamps
 
 def semantic_search(all_results, contexts, embeddings, query):
-    # Get the embedding for the search term
-    query_embedding = openai.embeddings_utils.get_embedding(
-        query,
-        engine="text-embedding-ada-002"
-    )
 
     n = 2
 
@@ -111,6 +106,7 @@ def semantic_search(all_results, contexts, embeddings, query):
     #df["ada_search"] = df.ada_search.apply(eval).apply(np.array)
     df.embeddings.apply(np.array)
 
+    # Get the embedding for the search term
     embedding = get_embedding(
         query,
         engine="text-embedding-ada-002"
