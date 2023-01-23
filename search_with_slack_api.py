@@ -321,7 +321,7 @@ def get_search_terms(query, previous_search_terms=None):
     else:
         return query
 
-def ask_llm(text, prompt, model="text-davinci-003", max_tokens=3000, temperature=0):
+def ask_gpt(text, prompt, model="text-davinci-003", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     openai.api_key = api_key
@@ -338,7 +338,7 @@ def ask_llm(text, prompt, model="text-davinci-003", max_tokens=3000, temperature
 
     return output
 
-def ask_gpt(text, prompt, model="text-davinci-003", max_tokens=3000):
+def ask_gpt_old(text, prompt, model="text-davinci-003", max_tokens=3000):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     openai.api_key = api_key
