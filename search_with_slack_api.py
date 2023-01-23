@@ -59,7 +59,6 @@ def main(query, num_results=50, best_of_n=3):
                 line_token_count = len(tokens)
 
             lc_embedding = OpenAIEmbeddings(openai_api_key=os.environ["OPENAI_API_KEY"])
-            #TODO: Pull this out of the loop and embed all the contexts at once
             embedding = lc_embedding.embed_documents([context_string])
 
             #embedding = openai.embeddings_utils.get_embedding(
