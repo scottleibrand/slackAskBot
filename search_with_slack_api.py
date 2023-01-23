@@ -6,7 +6,7 @@ import re
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import openai
-from openai.embeddings_utils import get_embedding, cosine_similarity
+from openai.embeddings_utils import cosine_similarity
 import tiktoken
 import pandas as pd
 import numpy as np
@@ -58,12 +58,14 @@ def main(query, num_results=50, best_of_n=3):
                 tokens = enc.encode(context_string)
                 line_token_count = len(tokens)
 
-            lc_embedding = OpenAIEmbeddings(model_name="text-embedding-ada-002", openai_api_key=os.environ["OPENAI_API_KEY"])
-            embedding = openai.embeddings_utils.get_embedding(
-                context_string,
-                engine="text-embedding-ada-002"
-            )
-            print(f"lc_embedding: {lc_embedding}, embedding: {embedding}")
+            lc_embedding = OpenAIEmbeddings(openai_api_key=os.environ["OPENAI_API_KEY"])
+            #TODO: Pull this out of the loop and embed all the contexts at once
+            embedding = lc_embedding.embed_documents([context_string])
+
+            #embedding = openai.embeddings_utils.get_embedding(
+            #    context_string,
+            #    engine="text-embedding-ada-002"
+            #)
             contexts.append(context_string)
             embeddings.append(embedding)
             #print(len(embeddings))
@@ -108,11 +110,16 @@ def semantic_search(all_results, contexts, embeddings, query):
     #df["ada_search"] = df.ada_search.apply(eval).apply(np.array)
     df.embeddings.apply(np.array)
 
+    lc_embedding = OpenAIEmbeddings(openai_api_key=os.environ["OPENAI_API_KEY"])
+    embedding = lc_embedding.embed_query(query)
+
     # Get the embedding for the search term
-    embedding = get_embedding(
-        query,
-        engine="text-embedding-ada-002"
-    )
+    #embedding = get_embedding(
+    #    query,
+    #    engine="text-embedding-ada-002"
+    #)
+    #print(f"query_embedding: {query_embedding}, embedding: {embedding}")
+
     df["similarities"] = df.embeddings.apply(lambda x: cosine_similarity(x, embedding))
     print(df.sort_values("similarities", ascending=False).head(n))
 
