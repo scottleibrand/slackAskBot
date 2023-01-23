@@ -11,6 +11,8 @@ import tiktoken
 import pandas as pd
 import numpy as np
 from langchain.llms import OpenAI
+from langchain.embeddings import OpenAIEmbeddings
+
 
 
 def main(query, num_results=50, best_of_n=3):
@@ -56,10 +58,12 @@ def main(query, num_results=50, best_of_n=3):
                 tokens = enc.encode(context_string)
                 line_token_count = len(tokens)
 
+            lc_embedding = OpenAIEmbeddings(model_name="text-embedding-ada-002", openai_api_key=os.environ["OPENAI_API_KEY"])
             embedding = openai.embeddings_utils.get_embedding(
                 context_string,
                 engine="text-embedding-ada-002"
             )
+            print(f"lc_embedding: {lc_embedding}, embedding: {embedding}")
             contexts.append(context_string)
             embeddings.append(embedding)
             #print(len(embeddings))
