@@ -78,8 +78,6 @@ def main(query, num_results=50, best_of_n=3):
 
 def semantic_search(all_results, contexts, embeddings, query):
 
-    n = 2
-
     # Create a dictionary containing results and embeddings
     data = {}
     # Print length of results, contexts and embeddings
