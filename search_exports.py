@@ -2,7 +2,7 @@
 This script searches through a given dataset for messages that are similar to a given search string.
 It uses OpenAI's text-embedding-ada-002 engine to generate embeddings for the search string
 and the messages in the dataset, and then uses cosine similarity to find the most similar messages.
-It then prints out the top n results, and uses OpenAI's text-davinci-003 engine to generate a summary
+It then prints out the top n results, and uses OpenAI's GPT-4 Turbo engine to generate a summary
 of the context and answer the question.
 """
 
@@ -111,34 +111,28 @@ def convert_to_json_old(res):
   # Return the JSON object
   return result
 
-def ask_gpt(content, prompt, model_engine="text-davinci-003", max_tokens=3000):
+def ask_gpt(prompt, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     openai.api_key = api_key
 
-    # Set the model to use, if not specified
-    if model_engine is None:
-        model_engine = "text-davinci-003"
-
-    # Set the temperature for sampling
-    temperature = 0
-
     # Set the max token count for the summary
-    if model_engine == "text-davinci-003":
-        max_tokens = 1000
+    if model == "gpt-4-1106-preview":
+        max_tokens = 10000
     else:
-        max_tokens = 500
+        max_tokens = 5000
 
-    # Generate completions
-    completions = openai.Completion.create(
-        engine=model_engine,
-        prompt=prompt,
+    # Use the chat completions endpoint for chat models
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "system", "content": "You are a helpful assistant."}, 
+                  {"role": "user", "content": prompt}],
         max_tokens=max_tokens,
         temperature=temperature
     )
 
-    # Get the summary from the first completion
-    answer = completions.choices[0].text
+    # Get the answer from the response
+    answer = response.choices[0].message["content"]
 
     return answer
 

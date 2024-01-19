@@ -10,9 +10,11 @@ from openai.embeddings_utils import cosine_similarity
 import tiktoken
 import pandas as pd
 import numpy as np
-from langchain.llms import OpenAI
-from langchain.embeddings import OpenAIEmbeddings
+#from langchain.llms import OpenAI
+#from langchain.embeddings import OpenAIEmbeddings
 
+#from langchain.llms import OpenAIChat
+#from langchain import PromptTemplate, LLMChain
 
 
 def main(query, num_results=50, best_of_n=3):
@@ -309,15 +311,15 @@ def get_search_terms(query, previous_search_terms=None):
     if len(query.split()) >= 3 and query.endswith("?"):
         if previous_search_terms is not None:
             # If the previous search terms are not None, use them as a prompt
-            prompt = f"Please generate one or more Slack search string(s) for the following question: {query}.\n \
-                Please return each search string on a separate line, without quotes or other punctuation.\n \
-                You already tried:\n{previous_search_terms}\n \
-                and that returned no results. Please try a more general, less specific search that will return more results.\n"
+             prompt = """Please generate one or more Slack search string(s) for the following question: {question}.
+                Please return each search string on a separate line, without quotes or other punctuation.
+                You already tried:\n""" + str(previous_search_terms) + """
+                and that returned no results. Please try a more general, less specific search that will return more results.\n"""
         else:
             # Use GPT to generate good Slack search terms for the question
-            prompt = f"Please generate one or more Slack search string(s) for the following question: {query}.\n \
-                Please return each search string on a separate line, without quotes or other punctuation.\n"
-        search_terms = ask_gpt(text=query, prompt=prompt)
+            prompt = """Please generate one or more Slack search string(s) for the following question: {question}.
+                Please return each search string on a separate line, without quotes or other punctuation.\n"""
+        search_terms = ask_chatgpt(question=query, prompt=prompt)
         #Remove any @mentions from the search terms
         search_terms = re.sub(r'@\w+', '', search_terms)
         print(f"Search terms: {search_terms}")
@@ -325,53 +327,33 @@ def get_search_terms(query, previous_search_terms=None):
     else:
         return query
 
-def ask_gpt(text, prompt, model="text-davinci-003", max_tokens=3000, temperature=0):
+def ask_chatgpt(question, prompt, temperature=0):
+    llm = OpenAIChat(temperature=temperature)
+    print(prompt)
+    print(question)
+    prompt = PromptTemplate(template=prompt, input_variables=["question"])
+    llm_chain = LLMChain(prompt=prompt, llm=llm)
+    
+    output = llm_chain.run(question)
+    return output
+
+
+def ask_gpt(text, prompt, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     openai.api_key = api_key
 
     # Set the max token count for the summary
-    if model == "text-davinci-003":
-        max_tokens = 1000
+    if model == "gpt-4-1106-preview":
+        max_tokens = 10000
     else:
-        max_tokens = 500
+        max_tokens = 5000
     
     llm = OpenAI(model_name=model, temperature=temperature, max_tokens=max_tokens)
 
     output = llm(prompt)
 
     return output
-
-def ask_gpt_old(text, prompt, model="text-davinci-003", max_tokens=3000):
-    # Get the API key from the environment variable
-    api_key = os.environ["OPENAI_API_KEY"]
-    openai.api_key = api_key
-
-    # Set the model to use, if not specified
-    if model is None:
-        model = "text-davinci-003"
-
-    # Set the temperature for sampling
-    temperature = 0
-
-    # Set the max token count for the summary
-    if model == "text-davinci-003":
-        max_tokens = 1000
-    else:
-        max_tokens = 500
-
-    # Generate completions
-    completions = openai.Completion.create(
-        engine=model,
-        prompt=prompt,
-        max_tokens=max_tokens,
-        temperature=temperature
-    )
-
-    # Get the summary from the first completion
-    summary = completions.choices[0].text
-
-    return summary
 
 
 def perform_search(query, userclient, num_results):
