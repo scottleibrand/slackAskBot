@@ -18,26 +18,32 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
     # Remove any @mentions from the query
     text = re.sub(r'<@\w+>', '', text)
 
-    # Send a message to indicate that GPT-4 is working on the request
-    app.client.chat_postMessage(
+    # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
+    status_message_response = app.client.chat_postMessage(
         channel=channel_id,
         text=f"Let me ask GPT-4...",
-        thread_ts=thread_ts  # Add the original message's ts to thread the response
+        thread_ts=thread_ts
     )
+    status_message_ts = status_message_response['ts']  # Capture the timestamp of the status message
 
     # Create a worker thread to perform the search and send the results
     def worker():
         response = chatgpt(text)
+        # Post the GPT-4 response
         app.client.chat_postMessage(
             channel=channel_id,
             text="Here is GPT-4's response:\n" + response,
-            thread_ts=thread_ts  # Add the original message's ts to thread the response
+            thread_ts=thread_ts
+        )
+        # Delete the "Let me ask GPT-4..." status message
+        app.client.chat_delete(
+            channel=channel_id,
+            ts=status_message_ts
         )
 
     # Start the worker thread
     thread = threading.Thread(target=worker)
     thread.start()
-
     
 
 @app.event("message")
