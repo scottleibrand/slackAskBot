@@ -1,0 +1,3 @@
+slack-bolt
+slack-sdk
+openai
