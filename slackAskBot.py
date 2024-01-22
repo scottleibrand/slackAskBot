@@ -13,7 +13,7 @@ app = App(
     token=os.environ["SLACK_BOT_TOKEN"]
 )
 
-def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
+def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Remove any @mentions from the query
     text = re.sub(r'<@\w+>', '', text)
 
@@ -31,20 +31,18 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
     conversation_history = []
     bot_user_id = app.client.auth_test()["user_id"]  # Get the bot's user ID
     for msg in messages:
-        # Skip the message if it's the one we're currently processing
-        if msg['ts'] == thread_ts:
+        # Skip bot's own status messages
+        if msg.get("user") == bot_user_id and "Let me ask GPT-4..." in msg.get("text", ""):
             continue
         # Check if the message is from the original user or the bot
-        if msg.get("user") == bot_user_id:
-            role = "assistant"
-        else:
-            role = "user"
+        role = "user" if msg.get("user") == user_id else "assistant"
         content = msg.get("text")
         if content:
             conversation_history.append({"role": role, "content": content})
-    
-    # Add the current message to the conversation history
-    conversation_history.append({"role": "user", "content": text})
+
+    # Add the current message to the conversation history if it's not already included
+    if not thread_ts or thread_ts == ts:
+        conversation_history.append({"role": "user", "content": text})
 
     print(f"Constructed conversation history: {conversation_history}")  # Debug print
 
@@ -101,7 +99,7 @@ def handle_message_events(body, logger):
         # Check if this is a threaded message and get the thread_ts
         thread_ts = event.get("thread_ts", ts)  # Use the message's ts if thread_ts is not present
 
-        ask_chatgpt(text, user_id, channel_id, thread_ts)
+        ask_chatgpt(text, user_id, channel_id, thread_ts, ts)
     else:
         logger.info("Ignored event: not a user message or has subtype")
 
