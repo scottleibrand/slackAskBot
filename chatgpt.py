@@ -52,7 +52,7 @@ def ask_gpt(conversation_history, model="gpt-4-1106-preview", max_tokens=3000, t
     # Define the system message
     system_message = {
         "role": "system",
-        "content": "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. Specifically, when printing a code block, don't include the language prefix to it, just go straight to the ```. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+        "content": "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
     }
 
     # Prepend the system message to the conversation history

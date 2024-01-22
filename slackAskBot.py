@@ -59,10 +59,14 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         # Include the conversation history in the request to GPT-4
         response = chatgpt(conversation_history)
         print(f"GPT-4 response: {response}")  # Debug print
+
+        # Modify the markdown to strip out the language specifier after the triple backticks
+        modified_response = re.sub(r'```[a-zA-Z]+', '```', response)
+
         # Post the GPT-4 response
         app.client.chat_postMessage(
             channel=channel_id,
-            text=response,
+            text=modified_response,
             thread_ts=thread_ts
         )
         # Delete the "Please wait for GPT-4..." status message
