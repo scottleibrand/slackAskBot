@@ -45,23 +45,27 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
     thread = threading.Thread(target=worker)
     thread.start()
     
-
 @app.event("message")
 def handle_message_events(body, logger):
     logger.info(body)
     # Extract the event object from the body
     event = body["event"]
-    # Get the user ID of the sender
-    user_id = event["user"]
-    # Get the text of the message
-    text = event["text"]
-    # Get the channel ID of the message
-    channel_id = event["channel"]
-    # Get the timestamp of the message
-    thread_ts = event.get("ts")
 
-    ask_chatgpt(text, user_id, channel_id, thread_ts)
-        
+    # Check if the event is a message sent by a user
+    if 'subtype' not in event and 'user' in event:
+        # Get the user ID of the sender
+        user_id = event["user"]
+        # Get the text of the message
+        text = event["text"]
+        # Get the channel ID of the message
+        channel_id = event["channel"]
+        # Get the timestamp of the message
+        thread_ts = event.get("ts")
+
+        ask_chatgpt(text, user_id, channel_id, thread_ts)
+    else:
+        logger.info("Ignored event: not a user message or has subtype")
+
 
 @app.event("app_mention")
 def handle_app_mention_events(body, logger):
