@@ -1,6 +1,6 @@
 import os
 import re
-from search_with_slack_api import main as search_with_slack_api
+#from search_with_slack_api import main as search_with_slack_api
 from chatgpt import main as chatgpt
 
 from slack_bolt import App
@@ -13,44 +13,12 @@ app = App(
     token=os.environ["SLACK_BOT_TOKEN"]
 )
 
-def handle_search_request(text, user_id):
-    return
-    #Remove any @mentions from the query
-    text = re.sub(r'<@\w+>', '', text)
-    # Send a message to indicate that the app is working on the request
-    app.client.chat_postMessage(channel=user_id, text=f"Let me search Slack to see what I can find...")
-
-    # Create a worker thread to perform the search and send the results
-    def worker():
-        search_terms, answers, permalinks, timestamps = search_with_slack_api(text)
-        print(f"answers: {answers}")
-        if answers is None or len(answers) == 0:
-            response = "I couldn't find any answers by searching Slack."
-            app.client.chat_postMessage(channel=user_id, text=response)
-            return
-        # Interleave the answers and permalinks
-        # Convert the search_terms list to a string
-        search_terms = "\n".join(search_terms)
-        response = "Here are some answers I found by searching Slack for:\n" + \
-            search_terms + "\n"
-        for answer, permalink, timestamp in zip(answers, permalinks, timestamps):
-            #response += f"Based on {permalink}, it appears that: {answer}\n"
-            #Extract only the date from the timestamp (format: 2022-12-01 09:36:53.549539)
-            timestamp = str(timestamp).split()[0]
-            response += f"It appears that as of {timestamp}: {answer} - {permalink}\n"
-            # Send the response back to the user
-            app.client.chat_postMessage(channel=user_id, text=response)
-            response = ""
-
-    # Start the worker thread
-    thread = threading.Thread(target=worker)
-    thread.start()
 
 def ask_chatgpt(text, user_id):
     #Remove any @mentions from the query
     text = re.sub(r'<@\w+>', '', text)
 
-    # Send a message to indicate that ChatGPT is working on the request
+    # Send a message to indicate that GPT-4 is working on the request
     app.client.chat_postMessage(channel=user_id, text=f"Let me ask GPT-4...")
 
     # Create a worker thread to perform the search and send the results
