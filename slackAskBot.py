@@ -14,24 +14,31 @@ app = App(
 )
 
 
-def ask_chatgpt(text, user_id):
-    #Remove any @mentions from the query
+def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
+    # Remove any @mentions from the query
     text = re.sub(r'<@\w+>', '', text)
 
     # Send a message to indicate that GPT-4 is working on the request
-    app.client.chat_postMessage(channel=user_id, text=f"Let me ask GPT-4...")
+    app.client.chat_postMessage(
+        channel=channel_id,
+        text=f"Let me ask GPT-4...",
+        thread_ts=thread_ts  # Add the original message's ts to thread the response
+    )
 
     # Create a worker thread to perform the search and send the results
     def worker():
         response = chatgpt(text)
-        app.client.chat_postMessage(channel=user_id, text="Here is GPT-4's response:\n"+response)
+        app.client.chat_postMessage(
+            channel=channel_id,
+            text="Here is GPT-4's response:\n" + response,
+            thread_ts=thread_ts  # Add the original message's ts to thread the response
+        )
 
     # Start the worker thread
     thread = threading.Thread(target=worker)
     thread.start()
 
     
-
 
 @app.event("message")
 def handle_message_events(body, logger):
@@ -42,14 +49,12 @@ def handle_message_events(body, logger):
     user_id = event["user"]
     # Get the text of the message
     text = event["text"]
+    # Get the channel ID of the message
+    channel_id = event["channel"]
+    # Get the timestamp of the message
+    thread_ts = event.get("ts")
 
-    ask_chatgpt(text, user_id)
-    # If the message is at least three words and ends in a question mark, call search_with_slack_api to answer it
-    #if len(text.split()) >= 3 and text.endswith("?"):
-    #    #app.client.chat_postMessage(channel=user_id, text=f"{text}...")
-    #    handle_search_request(text, user_id)
-    #else:
-    #    app.client.chat_postMessage(channel=user_id, text=f"If you'd like me to also search Slack, ask a question with at least three words, ending with a question mark.")
+    ask_chatgpt(text, user_id, channel_id, thread_ts)
         
 
 @app.event("app_mention")
@@ -63,19 +68,11 @@ def handle_app_mention_events(body, logger):
     text = event["text"]
     # Get the channel ID of the message
     channel_id = event["channel"]
+    # Get the timestamp of the message
+    thread_ts = event.get("ts")
 
-    ask_chatgpt(text, channel_id)
-    # If the message is at least three words and ends in a question mark, start a worker thread to search for answers
-    #if len(text.split()) >= 3 and text.endswith("?"):
-    #    handle_search_request(text, channel_id)
-    #else:
-    #    # Respond to the message by echoing back the text
-    #    app.client.chat_postMessage(channel=event["channel"],text=f"If you'd like me to also search Slack, ask a question with at least three words, ending with a question mark.")
-
-    #    # Start the worker thread
-    #    thread = threading.Thread(target=worker)
-    #    thread.start()
-
+    ask_chatgpt(text, channel_id, channel_id, thread_ts)
+  
 
 # Listen for a "hello" message and respond with a greeting
 @app.message("hello")
