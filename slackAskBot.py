@@ -1,6 +1,5 @@
 import os
 import re
-#from search_with_slack_api import main as search_with_slack_api
 from chatgpt import main as chatgpt
 
 from slack_bolt import App
@@ -25,7 +24,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             ts=thread_ts
         )
         messages = history['messages']
-        print(f"Thread history fetched: {messages}")  # Debug print
+        #print(f"Thread history fetched: {messages}")  # Debug print
 
     # Construct the conversation history
     conversation_history = []
@@ -49,11 +48,11 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
     status_message_response = app.client.chat_postMessage(
         channel=channel_id,
-        text=f"Let me ask GPT-4...",
+        text=f"Please wait for GPT-4...",
         thread_ts=thread_ts
     )
     status_message_ts = status_message_response['ts']  # Capture the timestamp of the status message
-    print(f"Status message posted with ts: {status_message_ts}")  # Debug print
+    #print(f"Status message posted with ts: {status_message_ts}")  # Debug print
 
     # Create a worker thread to perform the search and send the results
     def worker():
@@ -63,10 +62,10 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         # Post the GPT-4 response
         app.client.chat_postMessage(
             channel=channel_id,
-            text="Here is GPT-4's response:\n" + response,
+            text=response,
             thread_ts=thread_ts
         )
-        # Delete the "Let me ask GPT-4..." status message
+        # Delete the "Please wait for GPT-4..." status message
         try:
             app.client.chat_delete(
                 channel=channel_id,
@@ -86,20 +85,24 @@ def handle_message_events(body, logger):
     # Extract the event object from the body
     event = body["event"]
 
-    # Check if the event is a message sent by a user
+    # Check if the event is a message sent by a user and not a bot message
     if 'subtype' not in event and 'user' in event:
-        # Get the user ID of the sender
-        user_id = event["user"]
-        # Get the text of the message
-        text = event["text"]
         # Get the channel ID of the message
         channel_id = event["channel"]
+        # Get the text of the message
+        text = event["text"]
+        # Get the user ID of the sender
+        user_id = event["user"]
         # Get the timestamp of the message
         ts = event.get("ts")
         # Check if this is a threaded message and get the thread_ts
         thread_ts = event.get("thread_ts", ts)  # Use the message's ts if thread_ts is not present
 
-        ask_chatgpt(text, user_id, channel_id, thread_ts, ts)
+        # Check if the message is a direct message or a thread reply
+        if event["channel_type"] == "im" or thread_ts != ts:
+            ask_chatgpt(text, user_id, channel_id, thread_ts, ts)
+        else:
+            logger.info("Ignored event: not a direct message or thread reply")
     else:
         logger.info("Ignored event: not a user message or has subtype")
 
@@ -115,10 +118,24 @@ def handle_app_mention_events(body, logger):
     # Get the channel ID of the message
     channel_id = event["channel"]
     # Get the timestamp of the message
-    thread_ts = event.get("ts")
-    print(thread_ts)
+    ts = event.get("ts")
 
-    ask_chatgpt(text, channel_id, channel_id, thread_ts)
+    # Check if the message is part of a thread
+    thread_ts = event.get("thread_ts")
+    if thread_ts:
+        # If it's a thread, ensure the bot was mentioned in the thread
+        thread_history = app.client.conversations_replies(
+            channel=channel_id,
+            ts=thread_ts
+        )
+        messages = thread_history['messages']
+        if any(f"<@{bot_user_id}>" in msg.get("text", "") for msg in messages):
+            ask_chatgpt(text, user_id, channel_id, thread_ts)
+        else:
+            logger.info("Ignored app_mention: bot was not @ mentioned in the thread")
+    else:
+        # If it's not a thread, respond to the @ mention
+        ask_chatgpt(text, user_id, channel_id, ts)
   
 
 # Listen for a "hello" message and respond with a greeting

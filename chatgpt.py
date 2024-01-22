@@ -44,16 +44,24 @@ def slack_api_setup():
     return botclient, userclient, channels
     
 
-
 def ask_gpt(conversation_history, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     openai.api_key = api_key
 
+    # Define the system message
+    system_message = {
+        "role": "system",
+        "content": "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. Specifically, when printing a code block, don't include the language prefix to it, just go straight to the ```. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+    }
+
+    # Prepend the system message to the conversation history
+    conversation_history_with_system_message = [system_message] + conversation_history
+
     # Use the chat completions endpoint for chat models
     response = openai.ChatCompletion.create(
         model=model,
-        messages=conversation_history,
+        messages=conversation_history_with_system_message,
         max_tokens=max_tokens,
         temperature=temperature
     )
@@ -62,7 +70,6 @@ def ask_gpt(conversation_history, model="gpt-4-1106-preview", max_tokens=3000, t
     answer = response.choices[0].message["content"]
 
     return answer
-
 
 if __name__ == "__main__":
 
