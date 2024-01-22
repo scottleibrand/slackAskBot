@@ -13,10 +13,40 @@ app = App(
     token=os.environ["SLACK_BOT_TOKEN"]
 )
 
-
 def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
     # Remove any @mentions from the query
     text = re.sub(r'<@\w+>', '', text)
+
+    # Fetch the thread history if thread_ts is provided
+    messages = []
+    if thread_ts:
+        history = app.client.conversations_replies(
+            channel=channel_id,
+            ts=thread_ts
+        )
+        messages = history['messages']
+        print(f"Thread history fetched: {messages}")  # Debug print
+
+    # Construct the conversation history
+    conversation_history = []
+    bot_user_id = app.client.auth_test()["user_id"]  # Get the bot's user ID
+    for msg in messages:
+        # Skip the message if it's the one we're currently processing
+        if msg['ts'] == thread_ts:
+            continue
+        # Check if the message is from the original user or the bot
+        if msg.get("user") == bot_user_id:
+            role = "assistant"
+        else:
+            role = "user"
+        content = msg.get("text")
+        if content:
+            conversation_history.append({"role": role, "content": content})
+    
+    # Add the current message to the conversation history
+    conversation_history.append({"role": "user", "content": text})
+
+    print(f"Constructed conversation history: {conversation_history}")  # Debug print
 
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
     status_message_response = app.client.chat_postMessage(
@@ -25,10 +55,13 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
         thread_ts=thread_ts
     )
     status_message_ts = status_message_response['ts']  # Capture the timestamp of the status message
+    print(f"Status message posted with ts: {status_message_ts}")  # Debug print
 
     # Create a worker thread to perform the search and send the results
     def worker():
-        response = chatgpt(text)
+        # Include the conversation history in the request to GPT-4
+        response = chatgpt(conversation_history)
+        print(f"GPT-4 response: {response}")  # Debug print
         # Post the GPT-4 response
         app.client.chat_postMessage(
             channel=channel_id,
@@ -36,10 +69,14 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None):
             thread_ts=thread_ts
         )
         # Delete the "Let me ask GPT-4..." status message
-        app.client.chat_delete(
-            channel=channel_id,
-            ts=status_message_ts
-        )
+        try:
+            app.client.chat_delete(
+                channel=channel_id,
+                ts=status_message_ts
+            )
+            print(f"Status message deleted with ts: {status_message_ts}")  # Debug print
+        except Exception as e:
+            print(f"Failed to delete status message: {e}")  # Debug print
 
     # Start the worker thread
     thread = threading.Thread(target=worker)
@@ -60,12 +97,13 @@ def handle_message_events(body, logger):
         # Get the channel ID of the message
         channel_id = event["channel"]
         # Get the timestamp of the message
-        thread_ts = event.get("ts")
+        ts = event.get("ts")
+        # Check if this is a threaded message and get the thread_ts
+        thread_ts = event.get("thread_ts", ts)  # Use the message's ts if thread_ts is not present
 
         ask_chatgpt(text, user_id, channel_id, thread_ts)
     else:
         logger.info("Ignored event: not a user message or has subtype")
-
 
 @app.event("app_mention")
 def handle_app_mention_events(body, logger):
@@ -80,6 +118,7 @@ def handle_app_mention_events(body, logger):
     channel_id = event["channel"]
     # Get the timestamp of the message
     thread_ts = event.get("ts")
+    print(thread_ts)
 
     ask_chatgpt(text, channel_id, channel_id, thread_ts)
   

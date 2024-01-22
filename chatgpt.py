@@ -45,7 +45,7 @@ def slack_api_setup():
     
 
 
-def ask_gpt(question, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
+def ask_gpt(conversation_history, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     openai.api_key = api_key
@@ -53,10 +53,7 @@ def ask_gpt(question, model="gpt-4-1106-preview", max_tokens=3000, temperature=0
     # Use the chat completions endpoint for chat models
     response = openai.ChatCompletion.create(
         model=model,
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": question}
-        ],
+        messages=conversation_history,
         max_tokens=max_tokens,
         temperature=temperature
     )
