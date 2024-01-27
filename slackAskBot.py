@@ -83,7 +83,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         else:
             # Include the conversation history in the request to GPT-4
             raw_response = chatgpt(conversation_history, system_prompt)
-            print(f"GPT-4 response: {response}")  # Debug print
+            print(f"GPT-4 response: {raw_response}")  # Debug print
 
             # Modify the markdown to strip out the language specifier after the triple backticks
             response = re.sub(r'```[a-zA-Z]+', '```', raw_response)
