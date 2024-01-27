@@ -100,11 +100,23 @@ def handle_message_events(body, logger):
         # Get the timestamp of the message
         ts = event.get("ts")
         # Check if this is a threaded message and get the thread_ts
-        thread_ts = event.get("thread_ts", ts)  # Use the message's ts if thread_ts is not present
+        thread_ts = event.get("thread_ts")
 
         # Check if the message is a direct message or a thread reply
-        if event["channel_type"] == "im" or thread_ts != ts:
-            ask_chatgpt(text, user_id, channel_id, thread_ts, ts)
+        if event["channel_type"] == "im":
+            ask_chatgpt(text, user_id, channel_id, ts)
+        elif thread_ts and thread_ts != ts:
+            # Fetch the thread history to check if the bot was mentioned in the original message
+            thread_history = app.client.conversations_replies(
+                channel=channel_id,
+                ts=thread_ts
+            )
+            messages = thread_history['messages']
+            bot_user_id = app.client.auth_test()["user_id"]  # Get the bot's user ID
+            if any(f"<@{bot_user_id}>" in msg.get("text", "") for msg in messages if msg.get("ts") == thread_ts):
+                ask_chatgpt(text, user_id, channel_id, thread_ts, ts)
+            else:
+                logger.info("Ignored event: bot was not @ mentioned in the original thread message")
         else:
             logger.info("Ignored event: not a direct message or thread reply")
     else:
@@ -133,6 +145,7 @@ def handle_app_mention_events(body, logger):
             ts=thread_ts
         )
         messages = thread_history['messages']
+        bot_user_id = app.client.auth_test()["user_id"]  # Get the bot's user ID
         if any(f"<@{bot_user_id}>" in msg.get("text", "") for msg in messages):
             ask_chatgpt(text, user_id, channel_id, thread_ts)
         else:
