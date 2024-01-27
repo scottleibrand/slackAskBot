@@ -115,7 +115,7 @@ def call_helper_program(helper_program_path, conversation_history, channel_id, t
     try:
         # Pass the OPENAI_API_KEY as an argument
         result = subprocess.run([helper_program_path, conversation_str, openai_api_key], capture_output=True, text=True, check=True)
-        print(result.stdout)
+        print(result)
         return result.stdout
     except FileNotFoundError:
         error_message = "The helper program was not found."
@@ -130,7 +130,8 @@ def call_helper_program(helper_program_path, conversation_history, channel_id, t
     # Send error message to Slack if any
     if error_message:
         send_message_to_slack(channel_id, error_message, thread_ts)
-        return None
+        #return None
+        return error_message
 
 def send_message_to_slack(channel_id, text, thread_ts=None):
     try:
