@@ -88,12 +88,13 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Modify the markdown to strip out the language specifier after the triple backticks
             response = re.sub(r'```[a-zA-Z]+', '```', raw_response)
 
-        # Post the response
-        app.client.chat_postMessage(
-            channel=channel_id,
-            text=response,
-            thread_ts=thread_ts
-        )
+        if response:
+            # Post the response
+            app.client.chat_postMessage(
+                channel=channel_id,
+                text=response,
+                thread_ts=thread_ts
+            )
         # Delete the "Please wait for GPT-4..." status message
         try:
             app.client.chat_delete(
@@ -110,27 +111,24 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 def call_helper_program(helper_program_path, conversation_history, channel_id, thread_ts=None):
     # Convert conversation history to a string or a format the helper program expects
     conversation_str = json.dumps(conversation_history)
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
     try:
-        # Call the helper program with the conversation history as input
-        result = subprocess.run([helper_program_path, conversation_str], capture_output=True, text=True, check=True)
-        # Return the output from the helper program
+        # Pass the OPENAI_API_KEY as an argument
+        result = subprocess.run([helper_program_path, conversation_str, openai_api_key], capture_output=True, text=True, check=True)
+        print(result.stdout)
         return result.stdout
     except FileNotFoundError:
-        error_message = f"The helper program at {helper_program_path} was not found."
-        print(error_message)  # Log the error for debugging
-        # Send an error message back to the user in Slack
-        send_message_to_slack(channel_id, error_message, thread_ts)
-        return None
+        error_message = "The helper program was not found."
+        # Handle error: send message to Slack
     except PermissionError:
-        error_message = f"Permission denied for the helper program at {helper_program_path}. Please check the file permissions."
-        print(error_message)  # Log the error for debugging
-        # Send an error message back to the user in Slack
-        send_message_to_slack(channel_id, error_message, thread_ts)
-        return None
+        error_message = "Permission denied for the helper program. Please check the file permissions."
+        # Handle error: send message to Slack
     except subprocess.CalledProcessError as e:
-        error_message = f"Error executing the helper program: {e}"
-        print(error_message)  # Log the error for debugging
-        # Send an error message back to the user in Slack
+		print(e)
+        error_message = f"Error executing the helper program"
+        # Handle error: send message to Slack
+    # Send error message to Slack if any
+    if error_message:
         send_message_to_slack(channel_id, error_message, thread_ts)
         return None
 
