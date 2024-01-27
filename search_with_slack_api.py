@@ -341,7 +341,6 @@ def ask_chatgpt(question, prompt, temperature=0):
 def ask_gpt(text, prompt, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
-    openai.api_key = api_key
 
     # Set the max token count for the summary
     if model == "gpt-4-1106-preview":

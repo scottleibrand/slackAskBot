@@ -2,7 +2,9 @@ import os
 import sys
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=api_key)
 
 
 def main(question):
@@ -30,7 +32,7 @@ def slack_api_setup():
         # Call the conversations.list method using the WebClient, with a limit of 1000 non-archived channels
         response = botclient.conversations_list(limit=1000, exclude_archived=True)
         #response = botclient.conversations_list()
-        channels = response["channels"]
+        channels = response.channels
 
         # Print the names of all channels in the team
         #for channel in channels:
@@ -47,7 +49,6 @@ def slack_api_setup():
 def ask_gpt(conversation_history, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
-    openai.api_key = api_key
 
     # Define the system message
     system_message = {
@@ -59,15 +60,13 @@ def ask_gpt(conversation_history, model="gpt-4-1106-preview", max_tokens=3000, t
     conversation_history_with_system_message = [system_message] + conversation_history
 
     # Use the chat completions endpoint for chat models
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=conversation_history_with_system_message,
-        max_tokens=max_tokens,
-        temperature=temperature
-    )
+    response = client.chat.completions.create(model=model,
+    messages=conversation_history_with_system_message,
+    max_tokens=max_tokens,
+    temperature=temperature)
 
     # Get the answer from the response
-    answer = response.choices[0].message["content"]
+    answer = response.choices[0].message.content
 
     return answer
 

@@ -11,7 +11,9 @@ import pandas as pd
 import numpy as np
 import json
 import os
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=api_key)
 import tiktoken
 
 from openai.embeddings_utils import get_embedding, cosine_similarity
@@ -114,7 +116,6 @@ def convert_to_json_old(res):
 def ask_gpt(prompt, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
-    openai.api_key = api_key
 
     # Set the max token count for the summary
     if model == "gpt-4-1106-preview":
@@ -123,16 +124,14 @@ def ask_gpt(prompt, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
         max_tokens = 5000
 
     # Use the chat completions endpoint for chat models
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=[{"role": "system", "content": "You are a helpful assistant."}, 
-                  {"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature
-    )
+    response = client.chat.completions.create(model=model,
+    messages=[{"role": "system", "content": "You are a helpful assistant."}, 
+              {"role": "user", "content": prompt}],
+    max_tokens=max_tokens,
+    temperature=temperature)
 
     # Get the answer from the response
-    answer = response.choices[0].message["content"]
+    answer = response.choices[0].message.content
 
     return answer
 
