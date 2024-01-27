@@ -29,19 +29,23 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             ts=thread_ts
         )
         messages = history['messages']
-        #print(f"Thread history fetched: {messages}")  # Debug print
 
+    # Retrieve the channel information
+    channel_info = app.client.conversations_info(channel=channel_id)
+    channel_name = channel_info['channel']['name']
+    print(f"Channel name: {channel_name}")  # Print the channel name for debugging
 
-        # Retrieve the channel information
-        channel_info = app.client.conversations_info(channel=channel_id)
-        channel_name = channel_info['channel']['name']
-        print(f"Channel name: {channel_name}")  # Print the channel name for debugging
+    # Determine the system prompt based on the channel configuration
+    system_prompt = channel_config.get(channel_name, {}).get(
+        "system_prompt",
+        "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+    )
 
-        # Determine the system prompt based on the channel configuration
-        system_prompt = channel_config.get(channel_name, {}).get(
-            "system_prompt",
-            "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
-        )
+    # Determine the custom "please wait" message based on the channel configuration
+    please_wait_message = channel_config.get(channel_name, {}).get(
+        "please_wait_message",
+        "Please wait for GPT-4..."
+    )
 
     # Construct the conversation history
     conversation_history = []
@@ -60,18 +64,14 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     if not thread_ts or thread_ts == ts:
         conversation_history.append({"role": "user", "content": text})
 
-    print(f"Constructed conversation history: {conversation_history}")  # Debug print
-
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
     status_message_response = app.client.chat_postMessage(
         channel=channel_id,
-        text=f"Please wait for GPT-4...",
+        text=please_wait_message,
         thread_ts=thread_ts
     )
     status_message_ts = status_message_response['ts']  # Capture the timestamp of the status message
-    #print(f"Status message posted with ts: {status_message_ts}")  # Debug print
 
-    # Create a worker thread to perform the search and send the results
     def worker():
         # Include the conversation history in the request to GPT-4
         response = chatgpt(conversation_history, system_prompt)
@@ -92,7 +92,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 channel=channel_id,
                 ts=status_message_ts
             )
-            print(f"Status message deleted with ts: {status_message_ts}")  # Debug print
         except Exception as e:
             print(f"Failed to delete status message: {e}")  # Debug print
 

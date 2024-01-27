@@ -9,7 +9,7 @@ from openai import OpenAI
 def main(conversation_history, system_prompt):
     botclient, userclient, channels = slack_api_setup()
 
-    print(conversation_history)
+    #print(conversation_history)
 
     # Directly call the OpenAI API to get the response
     response = ask_gpt(conversation_history, system_prompt)
