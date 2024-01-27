@@ -78,7 +78,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     def worker():
         # Check if a helper program is specified and call it
         if helper_program:
-            response = call_helper_program(helper_program, conversation_history)
+            response = call_helper_program(helper_program, conversation_history, channel_id, thread_ts)
         else:
             # Include the conversation history in the request to GPT-4
             response = chatgpt(conversation_history, system_prompt)
@@ -106,13 +106,36 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     thread = threading.Thread(target=worker)
     thread.start()
     
-def call_helper_program(helper_program_path, conversation_history):
+def call_helper_program(helper_program_path, conversation_history, channel_id, thread_ts=None):
     # Convert conversation history to a string or a format the helper program expects
     conversation_str = json.dumps(conversation_history)
-    # Call the helper program with the conversation history as input
-    result = subprocess.run([helper_program_path, conversation_str], capture_output=True, text=True)
-    # Return the output from the helper program
-    return result.stdout
+    try:
+        # Call the helper program with the conversation history as input
+        result = subprocess.run([helper_program_path, conversation_str], capture_output=True, text=True, check=True)
+        # Return the output from the helper program
+        return result.stdout
+    except FileNotFoundError:
+        error_message = f"The helper program at {helper_program_path} was not found."
+        print(error_message)  # Log the error for debugging
+        # Send an error message back to the user in Slack
+        send_message_to_slack(channel_id, error_message, thread_ts)
+        return None
+    except subprocess.CalledProcessError as e:
+        error_message = f"Error executing the helper program: {e}"
+        print(error_message)  # Log the error for debugging
+        # Send an error message back to the user in Slack
+        send_message_to_slack(channel_id, error_message, thread_ts)
+        return None
+
+def send_message_to_slack(channel_id, text, thread_ts=None):
+    try:
+        app.client.chat_postMessage(
+            channel=channel_id,
+            text=text,
+            thread_ts=thread_ts
+        )
+    except Exception as e:
+        print(f"Failed to send message to Slack: {e}")  # Log the error for debugging
 
 @app.event("message")
 def handle_message_events(body, logger):
