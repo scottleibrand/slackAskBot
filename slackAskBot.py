@@ -7,6 +7,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 import threading
+import subprocess
 
 # Install the Slack app and get xoxb- token in advance
 app = App(
@@ -35,11 +36,13 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     channel_name = channel_info['channel']['name']
     print(f"Channel name: {channel_name}")  # Print the channel name for debugging
 
-    # Determine the system prompt based on the channel configuration
-    system_prompt = channel_config.get(channel_name, {}).get(
+    # Determine the system prompt and helper program based on the channel configuration
+    channel_settings = channel_config.get(channel_name, {})
+    system_prompt = channel_settings.get(
         "system_prompt",
-        "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+        "Default system prompt..."
     )
+    helper_program = channel_settings.get("helper_program")
 
     # Determine the custom "please wait" message based on the channel configuration
     please_wait_message = channel_config.get(channel_name, {}).get(
@@ -73,32 +76,44 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     status_message_ts = status_message_response['ts']  # Capture the timestamp of the status message
 
     def worker():
-        # Include the conversation history in the request to GPT-4
-        response = chatgpt(conversation_history, system_prompt)
-        print(f"GPT-4 response: {response}")  # Debug print
+        # Check if a helper program is specified and call it
+        if helper_program:
+            response = call_helper_program(helper_program, conversation_history)
+        else:
+            # Include the conversation history in the request to GPT-4
+            response = chatgpt(conversation_history, system_prompt)
+            print(f"GPT-4 response: {response}")  # Debug print
 
-        # Modify the markdown to strip out the language specifier after the triple backticks
-        modified_response = re.sub(r'```[a-zA-Z]+', '```', response)
+            # Modify the markdown to strip out the language specifier after the triple backticks
+            modified_response = re.sub(r'```[a-zA-Z]+', '```', response)
 
-        # Post the GPT-4 response
-        app.client.chat_postMessage(
-            channel=channel_id,
-            text=modified_response,
-            thread_ts=thread_ts
-        )
-        # Delete the "Please wait for GPT-4..." status message
-        try:
-            app.client.chat_delete(
+            # Post the GPT-4 response
+            app.client.chat_postMessage(
                 channel=channel_id,
-                ts=status_message_ts
+                text=modified_response,
+                thread_ts=thread_ts
             )
-        except Exception as e:
-            print(f"Failed to delete status message: {e}")  # Debug print
+            # Delete the "Please wait for GPT-4..." status message
+            try:
+                app.client.chat_delete(
+                    channel=channel_id,
+                    ts=status_message_ts
+                )
+            except Exception as e:
+                print(f"Failed to delete status message: {e}")  # Debug print
 
     # Start the worker thread
     thread = threading.Thread(target=worker)
     thread.start()
     
+def call_helper_program(helper_program_path, conversation_history):
+    # Convert conversation history to a string or a format the helper program expects
+    conversation_str = json.dumps(conversation_history)
+    # Call the helper program with the conversation history as input
+    result = subprocess.run([helper_program_path, conversation_str], capture_output=True, text=True)
+    # Return the output from the helper program
+    return result.stdout
+
 @app.event("message")
 def handle_message_events(body, logger):
     logger.info(body)
