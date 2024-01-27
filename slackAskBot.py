@@ -124,7 +124,7 @@ def call_helper_program(helper_program_path, conversation_history, channel_id, t
         error_message = "Permission denied for the helper program. Please check the file permissions."
         # Handle error: send message to Slack
     except subprocess.CalledProcessError as e:
-		print(e)
+        print(e)
         error_message = f"Error executing the helper program"
         # Handle error: send message to Slack
     # Send error message to Slack if any
