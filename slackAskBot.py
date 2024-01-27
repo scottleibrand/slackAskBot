@@ -1,5 +1,6 @@
 import os
 import re
+import json
 from chatgpt import main as chatgpt
 
 from slack_bolt import App
@@ -11,6 +12,10 @@ import threading
 app = App(
     token=os.environ["SLACK_BOT_TOKEN"]
 )
+
+# Load the channel configuration
+with open('channel_config.json', 'r') as config_file:
+    channel_config = json.load(config_file)
 
 def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Remove any @mentions from the query
@@ -25,6 +30,18 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         )
         messages = history['messages']
         #print(f"Thread history fetched: {messages}")  # Debug print
+
+
+        # Retrieve the channel information
+        channel_info = app.client.conversations_info(channel=channel_id)
+        channel_name = channel_info['channel']['name']
+        print(f"Channel name: {channel_name}")  # Print the channel name for debugging
+
+        # Determine the system prompt based on the channel configuration
+        system_prompt = channel_config.get(channel_name, {}).get(
+            "system_prompt",
+            "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+        )
 
     # Construct the conversation history
     conversation_history = []
@@ -57,7 +74,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Create a worker thread to perform the search and send the results
     def worker():
         # Include the conversation history in the request to GPT-4
-        response = chatgpt(conversation_history)
+        response = chatgpt(conversation_history, system_prompt)
         print(f"GPT-4 response: {response}")  # Debug print
 
         # Modify the markdown to strip out the language specifier after the triple backticks

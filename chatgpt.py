@@ -6,13 +6,13 @@ from openai import OpenAI
 
 
 
-def main(question):
+def main(conversation_history, system_prompt):
     botclient, userclient, channels = slack_api_setup()
 
-    print(question)
+    print(conversation_history)
 
     # Directly call the OpenAI API to get the response
-    response = ask_gpt(question)
+    response = ask_gpt(conversation_history, system_prompt)
 
     return response
 
@@ -45,15 +45,15 @@ def slack_api_setup():
     return botclient, userclient, channels
     
 
-def ask_gpt(conversation_history, model="gpt-4-1106-preview", max_tokens=3000, temperature=0):
+def ask_gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0):
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     client = OpenAI(api_key=api_key)
 
-    # Define the system message
+    # Define the system message using the provided system prompt
     system_message = {
         "role": "system",
-        "content": "You are slackAskBot, a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+        "content": system_prompt
     }
 
     # Prepend the system message to the conversation history
