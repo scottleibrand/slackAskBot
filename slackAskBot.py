@@ -44,12 +44,16 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             if not handle_slack_api_error(e):
                 raise
 
+
     try:
         channel_info = app.client.conversations_info(channel=channel_id)
         # Check if the channel is a direct message channel
         is_direct_message = channel_info['channel'].get('is_im', False)
         if is_direct_message:
-            channel_name = "Direct Message"
+            # Fetch the user's profile to get their name
+            user_info = app.client.users_info(user=user_id)
+            user_name = user_info['user']['real_name']  # You can also use 'name' or 'display_name' based on your preference
+            channel_name = user_name
         else:
             channel_name = channel_info['channel']['name']
     except KeyError:
@@ -57,10 +61,11 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         channel_name = "default"
     except SlackApiError as e:
         # Handle Slack API errors (e.g., missing permissions)
-        print(f"Slack API Error: {e.response['error']}")
+        if not handle_slack_api_error(e):
+            raise
         channel_name = "default"
 
-    print(f"Channel name: {channel_name}")  # Print the channel name for debugging
+    print(f"Channel/user name: {channel_name}")  # Print the channel name for debugging
 
     # Determine the system prompt and helper program based on the channel configuration
     channel_settings = channel_config.get(channel_name, {})
