@@ -40,7 +40,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     channel_settings = channel_config.get(channel_name, {})
     system_prompt = channel_settings.get(
         "system_prompt",
-        "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible *bold* formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+        "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
     )
     helper_program = channel_settings.get("helper_program")
 
