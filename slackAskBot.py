@@ -67,19 +67,24 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 
     print(f"Channel/user name: {channel_name}")  # Print the channel name for debugging
 
-    # Determine the system prompt and helper program based on the channel configuration
+    # Load the channel configuration
     channel_settings = channel_config.get(channel_name, {})
+
+    # Determine the system prompt based on the channel configuration or use the top-level default
     system_prompt = channel_settings.get(
         "system_prompt",
-        "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned."
+		channel_config.get("system_prompt", "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned.")
     )
     helper_program = channel_settings.get("helper_program")
 
-    # Determine the custom "please wait" message based on the channel configuration
-    please_wait_message = channel_config.get(channel_name, {}).get(
+	# Determine the custom "please_wait_message" based on the channel configuration or use the top-level default
+    please_wait_message = channel_settings.get(
         "please_wait_message",
-        "Please wait for GPT-4..."
+        channel_config.get("please_wait_message", "Please wait for GPT-4...")
     )
+
+    #print(f"Using system_prompt: '{system_prompt}'")
+    print(f"Using please_wait_message: '{please_wait_message}' for channel/user name: {channel_name}")
 
     # Construct the conversation history
     conversation_history = []
