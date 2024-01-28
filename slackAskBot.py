@@ -34,11 +34,15 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Fetch the thread history if thread_ts is provided
     messages = []
     if thread_ts:
-        history = app.client.conversations_replies(
-            channel=channel_id,
-            ts=thread_ts
-        )
-        messages = history['messages']
+        try:
+            history = app.client.conversations_replies(
+                channel=channel_id,
+                ts=thread_ts
+            )
+            messages = history['messages']
+        except SlackApiError as e:
+            if not handle_slack_api_error(e):
+                raise
 
     try:
         # Attempt to retrieve the channel information
@@ -159,6 +163,13 @@ def send_message_to_slack(channel_id, text, thread_ts=None):
         )
     except Exception as e:
         print(f"Failed to send message to Slack: {e}")  # Log the error for debugging
+
+def handle_slack_api_error(e):
+    if e.response["error"] in ["missing_scope", "not_in_channel"]:
+        print(f"Slack API error due to missing permissions: {e.response['needed']}")
+        # Determine fallback behavior based on the context
+        return True  # Indicate that the error was handled
+    return False  # Indicate that the error was not handled and should be re-raised
 
 @app.event("message")
 def handle_message_events(body, logger):
