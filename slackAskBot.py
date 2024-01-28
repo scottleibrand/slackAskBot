@@ -45,17 +45,22 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 raise
 
     try:
-        # Attempt to retrieve the channel information
         channel_info = app.client.conversations_info(channel=channel_id)
-        channel_name = channel_info['channel']['name']
-        print(f"Channel name: {channel_name}")  # Print the channel name for debugging
-    except SlackApiError as e:
-        if e.response["error"] == "missing_scope":
-            print(f"Missing permissions to fetch channel info: {e.response['needed']}")
-            # Fallback to default behavior or limited functionality
-            channel_name = "default"  # Example fallback channel name
+        # Check if the channel is a direct message channel
+        is_direct_message = channel_info['channel'].get('is_im', False)
+        if is_direct_message:
+            channel_name = "Direct Message"
         else:
-            raise  # Re-raise the exception if it's not a permissions issue
+            channel_name = channel_info['channel']['name']
+    except KeyError:
+        # Fallback if 'name' or other expected keys are missing
+        channel_name = "default"
+    except SlackApiError as e:
+        # Handle Slack API errors (e.g., missing permissions)
+        print(f"Slack API Error: {e.response['error']}")
+        channel_name = "default"
+
+    print(f"Channel name: {channel_name}")  # Print the channel name for debugging
 
     # Determine the system prompt and helper program based on the channel configuration
     channel_settings = channel_config.get(channel_name, {})
