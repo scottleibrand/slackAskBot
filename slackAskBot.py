@@ -15,8 +15,15 @@ app = App(
 )
 
 # Load the channel configuration
-with open('channel_config.json', 'r') as config_file:
-    channel_config = json.load(config_file)
+try:
+    with open('channel_config.json', 'r') as config_file:
+        channel_config = json.load(config_file)
+except FileNotFoundError:
+    print("channel_config.json not found. Using default configuration.")
+    channel_config = {}  # Use an empty dict or a default configuration
+except json.JSONDecodeError:
+    print("Invalid JSON in channel_config.json. Using default configuration.")
+    channel_config = {}  # Use an empty dict or a default configuration
 
 def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Remove any @mentions from the query
