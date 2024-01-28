@@ -6,6 +6,8 @@ from chatgpt import main as chatgpt
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+from slack_sdk.errors import SlackApiError
+
 import threading
 import subprocess
 
@@ -38,10 +40,18 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         )
         messages = history['messages']
 
-    # Retrieve the channel information
-    channel_info = app.client.conversations_info(channel=channel_id)
-    channel_name = channel_info['channel']['name']
-    print(f"Channel name: {channel_name}")  # Print the channel name for debugging
+    try:
+        # Attempt to retrieve the channel information
+        channel_info = app.client.conversations_info(channel=channel_id)
+        channel_name = channel_info['channel']['name']
+        print(f"Channel name: {channel_name}")  # Print the channel name for debugging
+    except SlackApiError as e:
+        if e.response["error"] == "missing_scope":
+            print(f"Missing permissions to fetch channel info: {e.response['needed']}")
+            # Fallback to default behavior or limited functionality
+            channel_name = "default"  # Example fallback channel name
+        else:
+            raise  # Re-raise the exception if it's not a permissions issue
 
     # Determine the system prompt and helper program based on the channel configuration
     channel_settings = channel_config.get(channel_name, {})
