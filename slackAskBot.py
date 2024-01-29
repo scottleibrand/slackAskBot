@@ -62,7 +62,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         else:
             # Generate initial response with GPT-3.5-turbo
             print(conversation_history)
-            initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo")
+            initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
             # Post the GPT-3.5-turbo response and save its timestamp
             initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
 
