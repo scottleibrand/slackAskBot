@@ -67,6 +67,8 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             initial_footer_ts = None
             try:
                 initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
+                # Modify the markdown to strip out the language specifier after the triple backticks
+                initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
                 # Post the GPT-3.5-turbo response and save its timestamp
                 initial_header_ts = post_message_to_slack(channel_id, "Initial GPT-3.5-Turbo response:", thread_ts)
                 initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
@@ -79,10 +81,12 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 conversation_history.append({"role": "assistant", "content": synthetic_review})
             except Exception as e:
                 print(f"Error from GPT-3.5: {e}")
-            print(conversation_history)
+            #print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
             enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview")
+            # Modify the markdown to strip out the language specifier after the triple backticks
+            enhanced_response = re.sub(r'```[a-zA-Z]+', '```', enhanced_response)
             print(enhanced_response)
 
             # Decide what to do based on GPT-4-Turbo's response
