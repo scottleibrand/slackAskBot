@@ -70,7 +70,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 conversation_history.append({"role": "assistant", "content": f"GPT-3.5 response: {initial_response}"})
 
                 # Synthetic review process
-                synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with “GOOD AS-IS”; if the response only needs minor elaboration, reply with ADDITIONAL RESPONSE: followed by a follow-up message with any clarifications or elaborations we want to append to the last reply. Otherwise, the reply will be completely replaced with your response."
+                synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS'; if the response only needs minor elaboration, reply with 'ADDITIONAL RESPONSE:'followed by a follow-up message with any clarifications or elaborations we want to append to the last reply. Otherwise, the reply will be completely replaced with your response. If you decide to replace your previous response, don't refer to it: it will be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response' or similar: just write a new and better response."
                 conversation_history.append({"role": "assistant", "content": synthetic_review})
             except Exception as e:
                 print("Error from GPT-3.5: {e}")
@@ -83,16 +83,20 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Decide what to do based on GPT-4-Turbo's response
             if "GOOD AS-IS" in enhanced_response:
                 # Do nothing, keep the initial response
+                print("All good; nothing more to post")
                 pass
             elif "ADDITIONAL RESPONSE:" in enhanced_response:
                 # Append any clarifications or elaborations as a new message
                 new_response = enhanced_response.replace("ADDITIONAL RESPONSE:", "").strip()
+                print("Posting an addendum")
                 post_message_to_slack(channel_id, enhanced_response, thread_ts)
             else:
                 # Post the new GPT-4-Turbo response
-                post_message_to_slack(channel_id, new_response, thread_ts)
+                print("Posting full GPT-4 response")
+                post_message_to_slack(channel_id, enhanced_response, thread_ts)
                 # Delete the initial GPT-3.5-turbo response
                 if initial_response_ts:
+                    print("Deleting GPT-3.5 response")
                     delete_message_from_slack(channel_id, initial_response_ts)
 
         # Delete the "Please wait for GPT-4..." status message
@@ -205,19 +209,9 @@ def call_helper_program(helper_program_path, conversation_history, channel_id, t
         # Handle error: send message to Slack
     # Send error message to Slack if any
     if error_message:
-        send_message_to_slack(channel_id, error_message, thread_ts)
+        post_message_to_slack(channel_id, error_message, thread_ts)
         #return None
         return error_message
-
-def send_message_to_slack(channel_id, text, thread_ts=None):
-    try:
-        app.client.chat_postMessage(
-            channel=channel_id,
-            text=text,
-            thread_ts=thread_ts
-        )
-    except Exception as e:
-        print(f"Failed to send message to Slack: {e}")  # Log the error for debugging
 
 def handle_slack_api_error(e):
     if e.response["error"] in ["missing_scope", "not_in_channel"]:
