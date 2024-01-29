@@ -62,13 +62,18 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         else:
             # Generate initial response with GPT-3.5-turbo
             print(conversation_history)
-            initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
-            # Post the GPT-3.5-turbo response and save its timestamp
-            initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
+            try:
+                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
+                # Post the GPT-3.5-turbo response and save its timestamp
+                initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
+                # Append the initial GPT-3.5-turbo response to the conversation history
+                conversation_history.append({"role": "assistant", "content": f"GPT-3.5 response: {initial_response}"})
 
-            # Synthetic review process
-            synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with “GOOD AS-IS”; if the response only needs minor elaboration, reply with ADDITIONAL RESPONSE: followed by a follow-up message with any clarifications or elaborations we want to append to the last reply. Otherwise, the reply will be completely replaced with your response."
-            conversation_history.append({"role": "assistant", "content": synthetic_review})
+                # Synthetic review process
+                synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with “GOOD AS-IS”; if the response only needs minor elaboration, reply with ADDITIONAL RESPONSE: followed by a follow-up message with any clarifications or elaborations we want to append to the last reply. Otherwise, the reply will be completely replaced with your response."
+                conversation_history.append({"role": "assistant", "content": synthetic_review})
+            except Exception as e:
+                print("Error from GPT-3.5: {e}")
             print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
@@ -87,7 +92,8 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 # Post the new GPT-4-Turbo response
                 post_message_to_slack(channel_id, new_response, thread_ts)
                 # Delete the initial GPT-3.5-turbo response
-                delete_message_from_slack(channel_id, initial_response_ts)
+                if initial_response_ts:
+                    delete_message_from_slack(channel_id, initial_response_ts)
 
         # Delete the "Please wait for GPT-4..." status message
         delete_message_from_slack(channel_id, status_message_ts)
@@ -129,7 +135,7 @@ def load_channel_settings(channel_name):
     # Determine the system prompt based on the channel configuration or use the top-level default
     system_prompt = channel_settings.get(
         "system_prompt",
-		channel_config.get("system_prompt", "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned.")
+        channel_config.get("system_prompt", "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned.")
     )
 
     # Determine the custom "please_wait_message" based on the channel configuration or use the top-level default
@@ -325,9 +331,9 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
 
     # Use the chat completions endpoint for chat models
     response = client.chat.completions.create(model=model,
-    messages=conversation_history_with_system_message,
-    max_tokens=max_tokens,
-    temperature=temperature)
+        messages=conversation_history_with_system_message,
+        max_tokens=max_tokens,
+        temperature=temperature)
 
     # Get the answer from the response
     answer = response.choices[0].message.content
