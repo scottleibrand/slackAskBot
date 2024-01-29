@@ -56,6 +56,9 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     status_message_ts = post_message_to_slack(channel_id, please_wait_message, thread_ts)
 
     def worker():
+        initial_header_ts = None
+        initial_response_ts = None
+        initial_footer_ts = None
         # Check if a helper program is specified and call it
         if helper_program:
             response = call_helper_program(helper_program, conversation_history, channel_id, thread_ts)
@@ -63,9 +66,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         else:
             # Generate initial response with GPT-3.5-turbo
             #print(conversation_history)
-            initial_header_ts = None
-            initial_response_ts = None
-            initial_footer_ts = None
             try:
                 initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
                 # Modify the markdown to strip out the language specifier after the triple backticks
