@@ -60,15 +60,33 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             response = call_helper_program(helper_program, conversation_history, channel_id, thread_ts)
             print(response)
         else:
-            # Include the conversation history in the request to GPT-4
-            raw_response = chatgpt(conversation_history, system_prompt)
-            print(f"GPT-4 response: {raw_response}")  # Debug print
+            # Generate initial response with GPT-3.5-turbo
+            initial_response = chatgpt(conversation_history, system_prompt, model="gpt-3.5-turbo")
+            # Post the GPT-3.5-turbo response and save its timestamp
+            initial_response_ts = post_message_to_slack(channel_id, f"GPT-3.5 response: {initial_response}", thread_ts)
 
-            # Modify the markdown to strip out the language specifier after the triple backticks
-            response = re.sub(r'```[a-zA-Z]+', '```', raw_response)
+            # Synthetic review process
+            synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with “GOOD AS-IS”; if the response needs completely replaced, reply with DELETE AND REPLACE WITH: followed by a corrected response; otherwise reply with any clarifications or elaborations we want to append to the last reply."
+            conversation_history.append({"role": "assistant", "content": synthetic_review})
 
-        if response:
-            post_message_to_slack(channel_id, response, thread_ts)
+            # Enhance response with GPT-4-Turbo
+            enhanced_response = chatgpt(conversation_history, system_prompt, model="gpt-4-turbo")
+
+            # Decide what to do based on GPT-4-Turbo's response
+            if "GOOD AS-IS" in enhanced_response:
+                # Do nothing, keep the initial response
+                pass
+            elif "DELETE AND REPLACE WITH:" in enhanced_response:
+                # Extract the new response
+                new_response = enhanced_response.replace("DELETE AND REPLACE WITH:", "").strip()
+                # Delete the initial GPT-3.5-turbo response
+                delete_message_from_slack(channel_id, initial_response_ts)
+                # Post the new GPT-4-Turbo response
+                post_message_to_slack(channel_id, new_response, thread_ts)
+            else:
+                # Append any clarifications or elaborations as a new message
+                post_message_to_slack(channel_id, thread_ts, enhanced_response)
+
         # Delete the "Please wait for GPT-4..." status message
         delete_message_from_slack(channel_id, status_message_ts)
 
