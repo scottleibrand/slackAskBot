@@ -62,16 +62,20 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         else:
             # Generate initial response with GPT-3.5-turbo
             print(conversation_history)
+            initial_header_ts = None
             initial_response_ts = None
+            initial_footer_ts = None
             try:
                 initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
                 # Post the GPT-3.5-turbo response and save its timestamp
+                initial_header_ts = post_message_to_slack(channel_id, "Initial GPT-3.5-Turbo response:", thread_ts)
                 initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
+                initial_footer_ts = post_message_to_slack(channel_id, "Checking that with GPT-4...", thread_ts)
                 # Append the initial GPT-3.5-turbo response to the conversation history
                 conversation_history.append({"role": "assistant", "content": f"GPT-3.5 response: {initial_response}"})
 
                 # Synthetic review process
-                synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS'; if the response only needs minor elaboration, reply with 'ADDITIONAL RESPONSE:'followed by a follow-up message with any clarifications or elaborations we want to append to the last reply. Otherwise, the reply will be completely replaced with your response. If you decide to replace your previous response, don't refer to it: it will be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response' or similar: just write a new and better response."
+                synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS' in all caps. If the GPT-3.5 response needs to be completely replaced, don't refer to it: just respond with a new message, and the old one be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response' or similar: just write a new and better response. If the GPT-3.5 response only needs clarification or elaboration, not correction, instead reply with 'ADDITIONAL RESPONSE: ' in all caps, followed by a follow-up message with any clarifications or elaborations we want to append to the last reply."
                 conversation_history.append({"role": "assistant", "content": synthetic_review})
             except Exception as e:
                 print("Error from GPT-3.5: {e}")
@@ -86,11 +90,11 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 # Do nothing, keep the initial response
                 print("All good; nothing more to post")
                 pass
-            elif "ADDITIONAL RESPONSE:" in enhanced_response:
+            elif "ADDITIONAL RESPONSE: " in enhanced_response:
                 # Append any clarifications or elaborations as a new message
-                new_response = enhanced_response.replace("ADDITIONAL RESPONSE:", "").strip()
+                new_response = enhanced_response.replace("ADDITIONAL RESPONSE: ", "").strip()
                 print("Posting an addendum")
-                post_message_to_slack(channel_id, enhanced_response, thread_ts)
+                post_message_to_slack(channel_id, new_response, thread_ts)
             else:
                 # Post the new GPT-4-Turbo response
                 print("Posting full GPT-4 response")
@@ -100,7 +104,11 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                     print("Deleting GPT-3.5 response")
                     delete_message_from_slack(channel_id, initial_response_ts)
 
-        # Delete the "Please wait for GPT-4..." status message
+        # Delete the status messages
+        if initial_footer_ts:
+            delete_message_from_slack(channel_id, initial_footer_ts)
+        if initial_header_ts:
+            delete_message_from_slack(channel_id, initial_header_ts)
         delete_message_from_slack(channel_id, status_message_ts)
 
     # Start the worker thread
@@ -146,7 +154,7 @@ def load_channel_settings(channel_name):
     # Determine the custom "please_wait_message" based on the channel configuration or use the top-level default
     please_wait_message = channel_settings.get(
         "please_wait_message",
-        channel_config.get("please_wait_message", "Please wait for GPT-4...")
+        channel_config.get("please_wait_message", "Just a moment...")
     )
 
     helper_program = channel_settings.get("helper_program")
