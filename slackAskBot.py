@@ -34,7 +34,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     messages = []
     if thread_ts:
         messages = fetch_conversation_history(channel_id, thread_ts)
-        print(f"DEBUG: Messages fetched from thread: {messages}")
+        #print(f"DEBUG: Messages fetched from thread: {messages}")
 
     # Determine channel or user name for settings
     channel_name = determine_channel_or_user_name(channel_id, user_id)
@@ -50,7 +50,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 
     # Construct the conversation history
     conversation_history = construct_conversation_history(messages, bot_user_id, user_id, text, thread_ts, ts)
-    print(f"DEBUG: Constructed conversation history: {conversation_history}")
+    #print(f"DEBUG: Constructed conversation history: {conversation_history}")
 
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
     status_message_ts = post_message_to_slack(channel_id, please_wait_message, thread_ts)
@@ -123,7 +123,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 def fetch_conversation_history(channel_id, thread_ts):
     try:
         history = app.client.conversations_replies(channel=channel_id, ts=thread_ts)
-        print(f"DEBUG: Fetched conversation history for channel {channel_id} and thread {thread_ts}. Messages count: {len(history['messages'])}")
+        #print(f"DEBUG: Fetched conversation history for channel {channel_id} and thread {thread_ts}. Messages count: {len(history['messages'])}")
         return history['messages']
     except SlackApiError as e:
         print(f"Failed to fetch conversation history: {e}")
