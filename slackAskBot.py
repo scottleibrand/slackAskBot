@@ -78,7 +78,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS' in all caps. If the GPT-3.5 response needs to be completely replaced, don't refer to it: just respond with a new message, and the old one be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response' or similar: just write a new and better response. If the GPT-3.5 response only needs clarification or elaboration, not correction, instead reply with 'ADDITIONAL RESPONSE: ' in all caps, followed by a follow-up message with any clarifications or elaborations we want to append to the last reply."
                 conversation_history.append({"role": "assistant", "content": synthetic_review})
             except Exception as e:
-                print("Error from GPT-3.5: {e}")
+                print(f"Error from GPT-3.5: {e}")
             print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
