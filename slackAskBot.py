@@ -69,7 +69,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             conversation_history.append({"role": "assistant", "content": synthetic_review})
 
             # Enhance response with GPT-4-Turbo
-            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo")
+            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview")
 
             # Decide what to do based on GPT-4-Turbo's response
             if "GOOD AS-IS" in enhanced_response:
