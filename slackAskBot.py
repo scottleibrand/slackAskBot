@@ -34,7 +34,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     messages = []
     if thread_ts:
         messages = fetch_conversation_history(channel_id, thread_ts)
-        print(messages)
+        print(f"DEBUG: Messages fetched from thread: {messages}")
 
     # Determine channel or user name for settings
     channel_name = determine_channel_or_user_name(channel_id, user_id)
@@ -50,6 +50,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 
     # Construct the conversation history
     conversation_history = construct_conversation_history(messages, bot_user_id, user_id, text, thread_ts, ts)
+    print(f"DEBUG: Constructed conversation history: {conversation_history}")
 
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
     status_message_ts = post_message_to_slack(channel_id, please_wait_message, thread_ts)
@@ -122,6 +123,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 def fetch_conversation_history(channel_id, thread_ts):
     try:
         history = app.client.conversations_replies(channel=channel_id, ts=thread_ts)
+        print(f"DEBUG: Fetched conversation history for channel {channel_id} and thread {thread_ts}. Messages count: {len(history['messages'])}")
         return history['messages']
     except SlackApiError as e:
         print(f"Failed to fetch conversation history: {e}")
@@ -253,9 +255,7 @@ def handle_message_events(body, logger):
         thread_ts = event.get("thread_ts")
 
         # Check if the message is a direct message or a thread reply
-        if event["channel_type"] == "im":
-            ask_chatgpt(text, user_id, channel_id, ts)
-        elif thread_ts and thread_ts != ts:
+        if thread_ts and thread_ts != ts:
             # Fetch the thread history to check if the bot was mentioned in the original message
             thread_history = app.client.conversations_replies(
                 channel=channel_id,
@@ -265,8 +265,12 @@ def handle_message_events(body, logger):
             bot_user_id = app.client.auth_test()["user_id"]  # Get the bot's user ID
             if any(f"<@{bot_user_id}>" in msg.get("text", "") for msg in messages if msg.get("ts") == thread_ts):
                 ask_chatgpt(text, user_id, channel_id, thread_ts, ts)
+            elif event["channel_type"] == "im":
+                ask_chatgpt(text, user_id, channel_id, thread_ts, ts)
             else:
                 logger.info("Ignored event: bot was not @ mentioned in the original thread message")
+        elif event["channel_type"] == "im":
+            ask_chatgpt(text, user_id, channel_id, ts)
         else:
             logger.info("Ignored event: not a direct message or thread reply")
     else:
