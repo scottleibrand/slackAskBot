@@ -34,6 +34,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     messages = []
     if thread_ts:
         messages = fetch_conversation_history(channel_id, thread_ts)
+        print(messages)
 
     # Determine channel or user name for settings
     channel_name = determine_channel_or_user_name(channel_id, user_id)
@@ -60,16 +61,19 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             print(response)
         else:
             # Generate initial response with GPT-3.5-turbo
+            print(conversation_history)
             initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo")
             # Post the GPT-3.5-turbo response and save its timestamp
-            initial_response_ts = post_message_to_slack(channel_id, f"GPT-3.5 response: {initial_response}", thread_ts)
+            initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
 
             # Synthetic review process
             synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with “GOOD AS-IS”; if the response needs completely replaced, reply with DELETE AND REPLACE WITH: followed by a corrected response; otherwise reply with any clarifications or elaborations we want to append to the last reply."
             conversation_history.append({"role": "assistant", "content": synthetic_review})
+            print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
             enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview")
+            print(enhanced_response)
 
             # Decide what to do based on GPT-4-Turbo's response
             if "GOOD AS-IS" in enhanced_response:
@@ -84,7 +88,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 post_message_to_slack(channel_id, new_response, thread_ts)
             else:
                 # Append any clarifications or elaborations as a new message
-                post_message_to_slack(channel_id, thread_ts, enhanced_response)
+                post_message_to_slack(channel_id, enhanced_response, thread_ts)
 
         # Delete the "Please wait for GPT-4..." status message
         delete_message_from_slack(channel_id, status_message_ts)
@@ -143,8 +147,8 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
     conversation_history = []
     for msg in messages:
         # Skip bot's own status messages
-        if msg.get("user") == bot_user_id and "Let me ask GPT-4..." in msg.get("text", ""):
-            continue
+        #if msg.get("user") == bot_user_id and "Let me ask GPT-4..." in msg.get("text", ""):
+            #continue
         # Check if the message is from the original user or the bot
         role = "user" if msg.get("user") == user_id else "assistant"
         content = msg.get("text")
