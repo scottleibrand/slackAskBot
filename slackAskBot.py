@@ -62,6 +62,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         else:
             # Generate initial response with GPT-3.5-turbo
             print(conversation_history)
+            initial_response_ts = None
             try:
                 initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
                 # Post the GPT-3.5-turbo response and save its timestamp
