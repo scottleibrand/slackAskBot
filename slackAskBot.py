@@ -1,12 +1,11 @@
 import os
 import re
 import json
-from chatgpt import main as chatgpt
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-
 from slack_sdk.errors import SlackApiError
+from openai import OpenAI
 
 import threading
 import subprocess
@@ -61,7 +60,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             print(response)
         else:
             # Generate initial response with GPT-3.5-turbo
-            initial_response = chatgpt(conversation_history, system_prompt, model="gpt-3.5-turbo")
+            initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo")
             # Post the GPT-3.5-turbo response and save its timestamp
             initial_response_ts = post_message_to_slack(channel_id, f"GPT-3.5 response: {initial_response}", thread_ts)
 
@@ -70,7 +69,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             conversation_history.append({"role": "assistant", "content": synthetic_review})
 
             # Enhance response with GPT-4-Turbo
-            enhanced_response = chatgpt(conversation_history, system_prompt, model="gpt-4-turbo")
+            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo")
 
             # Decide what to do based on GPT-4-Turbo's response
             if "GOOD AS-IS" in enhanced_response:
@@ -306,6 +305,31 @@ def app_home_opened(ack, event, logger):
     )
     logger.info(response)
 
+def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0):
+
+    # Get the API key from the environment variable
+    api_key = os.environ["OPENAI_API_KEY"]
+    client = OpenAI(api_key=api_key)
+
+    # Define the system message using the provided system prompt
+    system_message = {
+        "role": "system",
+        "content": system_prompt
+    }
+
+    # Prepend the system message to the conversation history
+    conversation_history_with_system_message = [system_message] + conversation_history
+
+    # Use the chat completions endpoint for chat models
+    response = client.chat.completions.create(model=model,
+    messages=conversation_history_with_system_message,
+    max_tokens=max_tokens,
+    temperature=temperature)
+
+    # Get the answer from the response
+    answer = response.choices[0].message.content
+
+    return answer
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
