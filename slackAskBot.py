@@ -208,10 +208,12 @@ def delete_message_from_slack(channel_id, ts):
 def call_helper_program(helper_program_path, conversation_history, channel_id, thread_ts=None):
     # Convert conversation history to a string or a format the helper program expects
     conversation_str = json.dumps(conversation_history)
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
     try:
-        # Pass the OPENAI_API_KEY as an argument
-        result = subprocess.run([helper_program_path, conversation_str, openai_api_key], capture_output=True, text=True, check=True)
+        # Create a copy of the current environment variables
+        env = os.environ.copy()
+
+        # Pass the environment variables to the subprocess
+        result = subprocess.run([helper_program_path, conversation_str], capture_output=True, text=True, check=True, env=env)
         print(result)
         return result.stdout
     except FileNotFoundError:
@@ -227,7 +229,6 @@ def call_helper_program(helper_program_path, conversation_history, channel_id, t
     # Send error message to Slack if any
     if error_message:
         post_message_to_slack(channel_id, error_message, thread_ts)
-        #return None
         return error_message
 
 def handle_slack_api_error(e):
