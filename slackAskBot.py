@@ -207,17 +207,28 @@ def delete_message_from_slack(channel_id, ts):
 
 def call_helper_program(helper_program_path, conversation_history, channel_id, thread_ts=None):
     conversation_str = json.dumps(conversation_history)
+    # Initialize command with the helper program path
+    command = [helper_program_path]
+
+    # If the helper_program is a Python file, check for a virtual environment
+    if helper_program_path.endswith('.py'):
+        # Determine the base directory of the helper_program
+        base_dir = os.path.dirname(helper_program_path)
+        # Check for the existence of a .venv/bin/python interpreter in that base directory
+        venv_python_path = os.path.join(base_dir, '.venv', 'bin', 'python')
+        if os.path.exists(venv_python_path):
+            # If a virtual environment's Python interpreter exists, use it
+            command = [venv_python_path, helper_program_path]
+
+    # Append the conversation history as the last argument
+    command.append(conversation_str)
+
     try:
         env = os.environ.copy()
-        result = subprocess.run([helper_program_path, conversation_str], capture_output=True, text=True, check=True, env=env)
+        # Execute the command
+        result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
         print("Helper program output:", result.stdout)
         return result.stdout
-    except FileNotFoundError:
-        error_message = "The helper program was not found."
-        # Handle error: send message to Slack
-    except PermissionError:
-        error_message = "Permission denied for the helper program. Please check the file permissions."
-        # Handle error: send message to Slack
     except subprocess.CalledProcessError as e:
         print("Helper program failed with error:", e.stderr)  # Log the error output
         error_message = f"Error executing the helper program: {e.stderr}"
