@@ -206,15 +206,11 @@ def delete_message_from_slack(channel_id, ts):
         print(f"Failed to delete message from Slack: {e}")
 
 def call_helper_program(helper_program_path, conversation_history, channel_id, thread_ts=None):
-    # Convert conversation history to a string or a format the helper program expects
     conversation_str = json.dumps(conversation_history)
     try:
-        # Create a copy of the current environment variables
         env = os.environ.copy()
-
-        # Pass the environment variables to the subprocess
         result = subprocess.run([helper_program_path, conversation_str], capture_output=True, text=True, check=True, env=env)
-        print(result)
+        print("Helper program output:", result.stdout)
         return result.stdout
     except FileNotFoundError:
         error_message = "The helper program was not found."
@@ -223,11 +219,13 @@ def call_helper_program(helper_program_path, conversation_history, channel_id, t
         error_message = "Permission denied for the helper program. Please check the file permissions."
         # Handle error: send message to Slack
     except subprocess.CalledProcessError as e:
-        print(e)
-        error_message = f"Error executing the helper program"
-        # Handle error: send message to Slack
-    # Send error message to Slack if any
-    if error_message:
+        print("Helper program failed with error:", e.stderr)  # Log the error output
+        error_message = f"Error executing the helper program: {e.stderr}"
+        post_message_to_slack(channel_id, error_message, thread_ts)
+        return error_message
+    except Exception as e:
+        print(f"Unexpected error when calling helper program: {e}")
+        error_message = "Unexpected error when executing the helper program."
         post_message_to_slack(channel_id, error_message, thread_ts)
         return error_message
 
