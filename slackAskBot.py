@@ -63,6 +63,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         if helper_program:
             response = call_helper_program(helper_program, conversation_history, channel_id, thread_ts)
             print(response)
+            post_message_to_slack(channel_id, response, thread_ts)
         else:
             # Generate initial response with GPT-3.5-turbo
             #print(conversation_history)
