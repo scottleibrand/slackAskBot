@@ -26,6 +26,19 @@ except json.JSONDecodeError:
     print("Invalid JSON in channel_config.json. Using default configuration.")
     channel_config = {}  # Use an empty dict or a default configuration
 
+def load_functions_config():
+    try:
+        with open('functions.json', 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        print("functions.json not found.")
+        return []
+    except json.JSONDecodeError:
+        print("Invalid JSON in functions.json.")
+        return []
+
+functions_config = load_functions_config()
+
 def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Remove any @mentions from the query
     text = re.sub(r'<@\w+>', '', text)
@@ -68,7 +81,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Generate initial response with GPT-3.5-turbo
             #print(conversation_history)
             try:
-                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000)
+                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
                 # Modify the markdown to strip out the language specifier after the triple backticks
                 initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
                 print(initial_response)
@@ -87,7 +100,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             #print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
-            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview")
+            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
             # Modify the markdown to strip out the language specifier after the triple backticks
             enhanced_response = re.sub(r'```[a-zA-Z]+', '```', enhanced_response)
             print(enhanced_response)
@@ -205,40 +218,39 @@ def delete_message_from_slack(channel_id, ts):
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
 
-def call_helper_program(helper_program_path, conversation_history, channel_id, thread_ts=None):
-    conversation_str = json.dumps(conversation_history)
+def call_helper_program(helper_program_path, arguments_str, channel_id, thread_ts=None):
+    # Determine the base directory of the helper_program
+    base_dir = os.path.dirname(helper_program_path)
+    # Check for the existence of a .venv/bin/python interpreter in that base directory
+    venv_python_path = os.path.join(base_dir, '.venv', 'bin', 'python')
+
     # Initialize command with the helper program path
     command = [helper_program_path]
 
-    # If the helper_program is a Python file, check for a virtual environment
-    if helper_program_path.endswith('.py'):
-        # Determine the base directory of the helper_program
-        base_dir = os.path.dirname(helper_program_path)
-        # Check for the existence of a .venv/bin/python interpreter in that base directory
-        venv_python_path = os.path.join(base_dir, '.venv', 'bin', 'python')
-        if os.path.exists(venv_python_path):
-            # If a virtual environment's Python interpreter exists, use it
-            command = [venv_python_path, helper_program_path]
+    # If a virtual environment's Python interpreter exists, use it
+    if os.path.exists(venv_python_path):
+        command = [venv_python_path, helper_program_path]
 
     # Append the conversation history as the last argument
-    command.append(conversation_str)
+    command.append(arguments_str)
 
     try:
         env = os.environ.copy()
         # Execute the command
         result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
-        print("Helper program output:", result.stdout)
-        return result.stdout
+        output = result.stdout
+        print("Helper program output:", output)
+
+        # Send the output back to the user in Slack
+        post_message_to_slack(channel_id, output, thread_ts)
     except subprocess.CalledProcessError as e:
         print("Helper program failed with error:", e.stderr)  # Log the error output
         error_message = f"Error executing the helper program: {e.stderr}"
         post_message_to_slack(channel_id, error_message, thread_ts)
-        return error_message
     except Exception as e:
         print(f"Unexpected error when calling helper program: {e}")
         error_message = "Unexpected error when executing the helper program."
         post_message_to_slack(channel_id, error_message, thread_ts)
-        return error_message
 
 def handle_slack_api_error(e):
     if e.response["error"] in ["missing_scope", "not_in_channel"]:
@@ -324,10 +336,10 @@ def handle_app_mention_events(body, logger):
 def app_home_opened(ack, event, logger):
     # Acknowledge the event request
     ack()
-    
+
     # Log the event data
     logger.info(event)
-    
+
     # Do something with the event data
     # For example, send a message to the user who opened the app home
     user_id = event["user"]
@@ -337,7 +349,7 @@ def app_home_opened(ack, event, logger):
     )
     logger.info(response)
 
-def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0):
+def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0, channel_id=None, thread_ts=None):
 
     # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
@@ -352,16 +364,72 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
     # Prepend the system message to the conversation history
     conversation_history_with_system_message = [system_message] + conversation_history
 
-    # Use the chat completions endpoint for chat models
+    functions_parameter = convert_functions_config_to_openai_format(functions_config)
+
     response = client.chat.completions.create(model=model,
         messages=conversation_history_with_system_message,
         max_tokens=max_tokens,
-        temperature=temperature)
+        temperature=temperature,
+        functions=functions_parameter)
+
+    # Check whether the response includes any tool calls
+    if "tool_calls" in response.choices[0].message:
+        for tool_call in response.choices[0].message["tool_calls"]:
+            function_name = tool_call["function"]["name"]
+            arguments = tool_call["function"]["arguments"]
+
+            # Dynamically handle the function call based on functions_config
+            handle_function_call(function_name, arguments, channel_id, thread_ts)
 
     # Get the answer from the response
     answer = response.choices[0].message.content
 
     return answer
+
+def convert_functions_config_to_openai_format(functions_config):
+    openai_functions = []
+    for func in functions_config:
+        # Initialize the function definition structure
+        function_def = {
+            "type": "function",
+            "function": {
+                "name": func["name"],
+                "description": func.get("description", ""),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            },
+        }
+
+        # Populate the parameters for the function
+        for param_name, param_type in func.get("parameters", {}).items():
+            function_def["function"]["parameters"]["properties"][param_name] = {
+                "type": param_type,
+                "description": f"The {param_name}",  # Example description, adjust as needed
+            }
+            function_def["function"]["parameters"]["required"].append(param_name)
+
+        openai_functions.append(function_def)
+
+    return openai_functions
+
+def handle_function_call(function_name, arguments, channel_id, thread_ts=None):
+    # Find the helper program path from functions_config
+    for func in functions_config:
+        if func["name"] == function_name:
+            helper_program_path = func.get("helper_program")
+            break
+    else:
+        print(f"No helper program configured for function: {function_name}")
+        return
+
+    # Convert arguments to a format that can be passed to the helper program
+    arguments_str = json.dumps(arguments)
+
+    # Call the helper program with the provided arguments
+    call_helper_program(helper_program_path, arguments_str, channel_id, thread_ts)
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
@@ -369,4 +437,3 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     # Start the app
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
-  
