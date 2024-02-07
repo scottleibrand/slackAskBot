@@ -81,7 +81,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Generate initial response with GPT-3.5-turbo
             #print(conversation_history)
             try:
-                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
+                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
                 # Modify the markdown to strip out the language specifier after the triple backticks
                 initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
                 print(initial_response)
@@ -350,48 +350,38 @@ def app_home_opened(ack, event, logger):
     logger.info(response)
 
 def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0, channel_id=None, thread_ts=None):
-
-    # Get the API key from the environment variable
     api_key = os.environ["OPENAI_API_KEY"]
     client = OpenAI(api_key=api_key)
 
-    # Define the system message using the provided system prompt
     system_message = {
         "role": "system",
         "content": system_prompt
     }
-
-    # Prepend the system message to the conversation history
     conversation_history_with_system_message = [system_message] + conversation_history
 
-    functions_parameter = convert_functions_config_to_openai_format(functions_config)
-    print(json.dumps(functions_parameter, indent=2))
+    tools_parameter = convert_functions_config_to_tools_parameter(functions_config)
 
-    response = client.chat.completions.create(model=model,
+    response = client.chat.completions.create(
+        model=model,
         messages=conversation_history_with_system_message,
         max_tokens=max_tokens,
         temperature=temperature,
-        functions=functions_parameter)
+        tools=tools_parameter  # Updated to use 'tools' instead of 'functions'
+    )
 
-    # Check whether the response includes any tool calls
     if "tool_calls" in response.choices[0].message:
         for tool_call in response.choices[0].message["tool_calls"]:
             function_name = tool_call["function"]["name"]
             arguments = tool_call["function"]["arguments"]
-
-            # Dynamically handle the function call based on functions_config
             handle_function_call(function_name, arguments, channel_id, thread_ts)
 
-    # Get the answer from the response
     answer = response.choices[0].message.content
-
     return answer
 
-def convert_functions_config_to_openai_format(functions_config):
-    openai_functions = []
+def convert_functions_config_to_tools_parameter(functions_config):
+    tools = []
     for func in functions_config:
-        # Construct the function definition according to the OpenAI API specification
-        function_def = {
+        tool_def = {
             "type": "function",
             "function": {
                 "name": func["name"],
@@ -404,17 +394,16 @@ def convert_functions_config_to_openai_format(functions_config):
             },
         }
 
-        # Populate the parameters for the function
         for param_name, param_type in func.get("parameters", {}).items():
-            function_def["function"]["parameters"]["properties"][param_name] = {
+            tool_def["function"]["parameters"]["properties"][param_name] = {
                 "type": param_type,
-                "description": f"The {param_name}",  # Example description, adjust as needed
+                "description": f"The {param_name}",
             }
-            function_def["function"]["parameters"]["required"].append(param_name)
+            tool_def["function"]["parameters"]["required"].append(param_name)
 
-        openai_functions.append(function_def)
+        tools.append(tool_def)
 
-    return openai_functions
+    return tools
 
 def handle_function_call(function_name, arguments, channel_id, thread_ts=None):
     # Find the helper program path from functions_config
