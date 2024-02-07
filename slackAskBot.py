@@ -221,7 +221,7 @@ def delete_message_from_slack(channel_id, ts):
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
 
-def call_helper_program(helper_program_path, arguments_str, channel_id, thread_ts=None):
+def call_helper_program(helper_program_path, function_name, arguments_str, channel_id, thread_ts=None):
     # Determine the base directory of the helper_program
     base_dir = os.path.dirname(helper_program_path)
     # Check for the existence of a .venv/bin/python interpreter in that base directory
@@ -234,8 +234,8 @@ def call_helper_program(helper_program_path, arguments_str, channel_id, thread_t
     if os.path.exists(venv_python_path):
         command = [venv_python_path, helper_program_path]
 
-    # Append the conversation history as the last argument
-    command.append(arguments_str)
+    # Append the function name and arguments as the last arguments
+    command += [function_name, arguments_str]
 
     try:
         env = os.environ.copy()
@@ -244,7 +244,7 @@ def call_helper_program(helper_program_path, arguments_str, channel_id, thread_t
         output = result.stdout
         print("Helper program output:", output)
 
-        # Send the output back to the user in Slack
+        # For now, send the output back to the user in Slack
         post_message_to_slack(channel_id, output, thread_ts)
     except subprocess.CalledProcessError as e:
         print("Helper program failed with error:", e.stderr)  # Log the error output
@@ -369,13 +369,16 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
         messages=conversation_history_with_system_message,
         max_tokens=max_tokens,
         temperature=temperature,
-        tools=tools_parameter  # Updated to use 'tools' instead of 'functions'
+        tools=tools_parameter
     )
 
+    # Check whether the response includes any tool calls
     if "tool_calls" in response.choices[0].message:
+        print("tool_calls found")
         for tool_call in response.choices[0].message["tool_calls"]:
             function_name = tool_call["function"]["name"]
-            arguments = tool_call["function"]["arguments"]
+            arguments = json.loads(tool_call["function"]["arguments"])
+            print(f"handle_function_call({function_name}, {arguments}, {channel_id}, {thread_ts})")
             handle_function_call(function_name, arguments, channel_id, thread_ts)
 
     answer = response.choices[0].message.content
