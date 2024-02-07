@@ -81,7 +81,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Generate initial response with GPT-3.5-turbo
             #print(conversation_history)
             try:
-                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
+                initial_response, initial_status_ts = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
                 # Modify the markdown to strip out the language specifier after the triple backticks
                 initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
                 print(initial_response)
@@ -100,7 +100,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             #print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
-            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
+            enhanced_response, enhanced_response_ts = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
             # Modify the markdown to strip out the language specifier after the triple backticks
             enhanced_response = re.sub(r'```[a-zA-Z]+', '```', enhanced_response)
             print(enhanced_response)
@@ -120,6 +120,9 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
                 print("Posting full GPT-4 response")
                 post_message_to_slack(channel_id, enhanced_response, thread_ts)
                 # Delete the initial GPT-3.5-turbo response
+                if initial_status_ts:
+                    print("Deleting GPT-3.5 status message")
+                    delete_message_from_slack(channel_id, initial_status_ts)
                 if initial_response_ts:
                     print("Deleting GPT-3.5 response")
                     delete_message_from_slack(channel_id, initial_response_ts)
@@ -375,13 +378,13 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
             # Pass the model argument to handle_function_call
-            answer = handle_function_call(function_name, arguments, model=model, channel_id=channel_id, thread_ts=thread_ts)
+            answer, status_ts = handle_function_call(function_name, arguments, model=model, channel_id=channel_id, thread_ts=thread_ts)
     else:
         print("No tool calls found in response.")
         # Handle the case where the message content is None
         answer = response.choices[0].message.content if response.choices[0].message.content else "No response content."
 
-    return answer
+    return answer, status_ts
 
 def convert_functions_config_to_tools_parameter(functions_config):
     tools = []
@@ -425,11 +428,11 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, m
 
     # Post the status message to Slack
     status_message = f'Asking "{function_name}": "{arguments["question"]}"'
-    post_message_to_slack(channel_id, status_message, thread_ts)
+    status_ts = post_message_to_slack(channel_id, status_message, thread_ts)
 
     # Call the helper program and return its response
     response = call_helper_program(helper_program_path, arguments_str, model)
-    return response
+    return response, status_ts
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
