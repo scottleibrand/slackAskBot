@@ -201,6 +201,9 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
     return conversation_history
 
 def post_message_to_slack(channel_id, text, thread_ts=None):
+    if not text:  # Check if text is empty or None
+        print("No text to post to Slack.")
+        return None
     try:
         response = app.client.chat_postMessage(
             channel=channel_id,
@@ -419,6 +422,7 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None):
     arguments_str = json.dumps(arguments)
 
     # Call the helper program with the provided arguments
+    print(f"Executing helper program with command: {helper_program_path}, {arguments_str}, {channel_id}, {thread_ts}")
     call_helper_program(helper_program_path, arguments_str, channel_id, thread_ts)
 
 if __name__ == "__main__":
