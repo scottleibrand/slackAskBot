@@ -221,7 +221,7 @@ def delete_message_from_slack(channel_id, ts):
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
 
-def call_helper_program(helper_program_path, arguments_str, channel_id, thread_ts=None):
+def call_helper_program(helper_program_path, arguments_str):
     # Determine the base directory of the helper_program
     base_dir = os.path.dirname(helper_program_path)
     # Check for the existence of a .venv/bin/python interpreter in that base directory
@@ -237,16 +237,15 @@ def call_helper_program(helper_program_path, arguments_str, channel_id, thread_t
         output = result.stdout
         print("Helper program output:", output)
 
-        # For now, send the output back to the user in Slack
-        post_message_to_slack(channel_id, output, thread_ts)
+        return output  # Return the output instead of posting it to Slack
     except subprocess.CalledProcessError as e:
         print("Helper program failed with error:", e.stderr)  # Log the error output
         error_message = f"Error executing the helper program: {e.stderr}"
-        post_message_to_slack(channel_id, error_message, thread_ts)
+        return error_message
     except Exception as e:
         print(f"Unexpected error when calling helper program: {e}")
         error_message = "Unexpected error when executing the helper program."
-        post_message_to_slack(channel_id, error_message, thread_ts)
+        return error_message
 
 def handle_slack_api_error(e):
     if e.response["error"] in ["missing_scope", "not_in_channel"]:
@@ -345,7 +344,7 @@ def app_home_opened(ack, event, logger):
     )
     logger.info(response)
 
-def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0, channel_id=None, thread_ts=None):
+def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0):
     api_key = os.environ["OPENAI_API_KEY"]
     client = OpenAI(api_key=api_key)
 
@@ -371,17 +370,16 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
     # Check for tool calls in the response
     tool_calls = getattr(response.choices[0].message, 'tool_calls', None)
     if tool_calls:
-        print("Tool calls found in response.")
         for tool_call in tool_calls:
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
-            print(f"Handling tool call: {function_name} with arguments: {arguments}")
-            handle_function_call(function_name, arguments, channel_id, thread_ts)
+            # Pass the model argument to handle_function_call
+            answer = handle_function_call(function_name, arguments, model=model)
     else:
         print("No tool calls found in response.")
+        # Handle the case where the message content is None
+        answer = response.choices[0].message.content if response.choices[0].message.content else "No response content."
 
-    # Handle the case where the message content is None
-    answer = response.choices[0].message.content if response.choices[0].message.content else "No response content."
     return answer
 
 def convert_functions_config_to_tools_parameter(functions_config):
@@ -411,7 +409,7 @@ def convert_functions_config_to_tools_parameter(functions_config):
 
     return tools
 
-def handle_function_call(function_name, arguments, channel_id, thread_ts=None):
+def handle_function_call(function_name, arguments, model="gpt-3.5-turbo-16k"):
     # Find the helper program path from functions_config
     for func in functions_config:
         if func["name"] == function_name:
@@ -423,10 +421,8 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None):
 
     # Convert arguments to a format that can be passed to the helper program
     arguments_str = json.dumps(arguments)
-
-    # Call the helper program with the provided arguments
-    print(f"Executing helper program with command: {helper_program_path}, {arguments_str}, {channel_id}, {thread_ts}")
-    call_helper_program(helper_program_path, arguments_str, channel_id, thread_ts)
+    # Call the helper program and return its response
+    return call_helper_program(helper_program_path, arguments_str, model)
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
