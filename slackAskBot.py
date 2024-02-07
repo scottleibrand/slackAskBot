@@ -81,7 +81,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Generate initial response with GPT-3.5-turbo
             #print(conversation_history)
             try:
-                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000)
+                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
                 # Modify the markdown to strip out the language specifier after the triple backticks
                 initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
                 print(initial_response)
@@ -100,7 +100,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             #print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
-            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview")
+            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
             # Modify the markdown to strip out the language specifier after the triple backticks
             enhanced_response = re.sub(r'```[a-zA-Z]+', '```', enhanced_response)
             print(enhanced_response)
@@ -345,7 +345,7 @@ def app_home_opened(ack, event, logger):
     )
     logger.info(response)
 
-def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0):
+def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0):
     api_key = os.environ["OPENAI_API_KEY"]
     client = OpenAI(api_key=api_key)
 
@@ -375,7 +375,7 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
             # Pass the model argument to handle_function_call
-            answer = handle_function_call(function_name, arguments, model=model)
+            answer = handle_function_call(function_name, arguments, model=model, channel_id=channel_id, thread_ts=thread_ts)
     else:
         print("No tool calls found in response.")
         # Handle the case where the message content is None
@@ -410,7 +410,7 @@ def convert_functions_config_to_tools_parameter(functions_config):
 
     return tools
 
-def handle_function_call(function_name, arguments, model="gpt-3.5-turbo-16k"):
+def handle_function_call(function_name, arguments, channel_id, thread_ts=None, model="gpt-3.5-turbo-16k"):
     # Find the helper program path from functions_config
     for func in functions_config:
         if func["name"] == function_name:
@@ -422,8 +422,14 @@ def handle_function_call(function_name, arguments, model="gpt-3.5-turbo-16k"):
 
     # Convert arguments to a format that can be passed to the helper program
     arguments_str = json.dumps(arguments)
+
+    # Post the status message to Slack
+    status_message = f'Asking "{function_name}": "{arguments["question"]}"'
+    post_message_to_slack(channel_id, status_message, thread_ts)
+
     # Call the helper program and return its response
-    return call_helper_program(helper_program_path, arguments_str, model)
+    response = call_helper_program(helper_program_path, arguments_str, model)
+    return response
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
