@@ -378,6 +378,8 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
         for tool_call in tool_calls:
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
+            # Include the full conversation history in the arguments
+            arguments["conversation_history"] = conversation_history
             # Pass the model argument to handle_function_call
             answer, status_ts = handle_function_call(function_name, arguments, model=model, channel_id=channel_id, thread_ts=thread_ts)
     else:
