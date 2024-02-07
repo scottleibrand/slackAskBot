@@ -372,6 +372,7 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
     print("GPT Response:", response)
 
     # Check for tool calls in the response
+    status_ts = None
     tool_calls = getattr(response.choices[0].message, 'tool_calls', None)
     if tool_calls:
         for tool_call in tool_calls:
