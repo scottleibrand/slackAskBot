@@ -72,60 +72,55 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         initial_header_ts = None
         initial_response_ts = None
         initial_footer_ts = None
-        # Check if a helper program is specified and call it
-        if helper_program:
-            response = call_helper_program(helper_program, conversation_history, channel_id, thread_ts)
-            print(response)
-            post_message_to_slack(channel_id, response, thread_ts)
-        else:
-            # Generate initial response with GPT-3.5-turbo
-            #print(conversation_history)
-            try:
-                initial_response, initial_status_ts = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
-                # Modify the markdown to strip out the language specifier after the triple backticks
-                initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
-                print(initial_response)
-                # Post the GPT-3.5-turbo response and save its timestamp
-                initial_header_ts = post_message_to_slack(channel_id, "Initial GPT-3.5-Turbo response:", thread_ts)
-                initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
-                initial_footer_ts = post_message_to_slack(channel_id, "Checking that with GPT-4...", thread_ts)
-                # Append the initial GPT-3.5-turbo response to the conversation history
-                conversation_history.append({"role": "assistant", "content": f"GPT-3.5 response: {initial_response}"})
 
-                # Synthetic review process
-                synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS' in all caps. If the GPT-3.5 response needs to be completely replaced, don't refer to it: just respond with a new message, and the old one be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response', 'My mistake', or similar: just write a new and better response. If the GPT-3.5 response only needs clarification or elaboration, not correction, instead reply with 'ADDITIONAL RESPONSE: ' in all caps, followed by a follow-up message with any clarifications or elaborations we want to append to the last reply."
-                conversation_history.append({"role": "assistant", "content": synthetic_review})
-            except Exception as e:
-                print(f"Error from GPT-3.5: {e}")
-            #print(conversation_history)
-
-            # Enhance response with GPT-4-Turbo
-            enhanced_response, enhanced_response_ts = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
+        # Generate initial response with GPT-3.5-turbo
+        #print(conversation_history)
+        try:
+            initial_response, initial_status_ts = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
             # Modify the markdown to strip out the language specifier after the triple backticks
-            enhanced_response = re.sub(r'```[a-zA-Z]+', '```', enhanced_response)
-            print(enhanced_response)
+            initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
+            print(initial_response)
+            # Post the GPT-3.5-turbo response and save its timestamp
+            initial_header_ts = post_message_to_slack(channel_id, "Initial GPT-3.5-Turbo response:", thread_ts)
+            initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
+            initial_footer_ts = post_message_to_slack(channel_id, "Checking that with GPT-4...", thread_ts)
+            # Append the initial GPT-3.5-turbo response to the conversation history
+            conversation_history.append({"role": "assistant", "content": f"GPT-3.5 response: {initial_response}"})
 
-            # Decide what to do based on GPT-4-Turbo's response
-            if "GOOD AS-IS" in enhanced_response:
-                # Do nothing, keep the initial response
-                print("All good; nothing more to post")
-                pass
-            elif "ADDITIONAL RESPONSE: " in enhanced_response:
-                # Append any clarifications or elaborations as a new message
-                new_response = enhanced_response.replace("ADDITIONAL RESPONSE: ", "").strip()
-                print("Posting an addendum")
-                post_message_to_slack(channel_id, new_response, thread_ts)
-            else:
-                # Post the new GPT-4-Turbo response
-                print("Posting full GPT-4 response")
-                post_message_to_slack(channel_id, enhanced_response, thread_ts)
-                # Delete the initial GPT-3.5-turbo response
-                if initial_status_ts:
-                    print("Deleting GPT-3.5 status message")
-                    delete_message_from_slack(channel_id, initial_status_ts)
-                if initial_response_ts:
-                    print("Deleting GPT-3.5 response")
-                    delete_message_from_slack(channel_id, initial_response_ts)
+            # Synthetic review process
+            synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS' in all caps. If the GPT-3.5 response needs to be completely replaced, don't refer to it: just respond with a new message, and the old one be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response', 'My mistake', or similar: just write a new and better response. If the GPT-3.5 response only needs clarification or elaboration, not correction, instead reply with 'ADDITIONAL RESPONSE: ' in all caps, followed by a follow-up message with any clarifications or elaborations we want to append to the last reply."
+            conversation_history.append({"role": "assistant", "content": synthetic_review})
+        except Exception as e:
+            print(f"Error from GPT-3.5: {e}")
+        #print(conversation_history)
+
+        # Enhance response with GPT-4-Turbo
+        enhanced_response, enhanced_response_ts = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
+        # Modify the markdown to strip out the language specifier after the triple backticks
+        enhanced_response = re.sub(r'```[a-zA-Z]+', '```', enhanced_response)
+        print(enhanced_response)
+
+        # Decide what to do based on GPT-4-Turbo's response
+        if "GOOD AS-IS" in enhanced_response:
+            # Do nothing, keep the initial response
+            print("All good; nothing more to post")
+            pass
+        elif "ADDITIONAL RESPONSE: " in enhanced_response:
+            # Append any clarifications or elaborations as a new message
+            new_response = enhanced_response.replace("ADDITIONAL RESPONSE: ", "").strip()
+            print("Posting an addendum")
+            post_message_to_slack(channel_id, new_response, thread_ts)
+        else:
+            # Post the new GPT-4-Turbo response
+            print("Posting full GPT-4 response")
+            post_message_to_slack(channel_id, enhanced_response, thread_ts)
+            # Delete the initial GPT-3.5-turbo response
+            if initial_status_ts:
+                print("Deleting GPT-3.5 status message")
+                delete_message_from_slack(channel_id, initial_status_ts)
+            if initial_response_ts:
+                print("Deleting GPT-3.5 response")
+                delete_message_from_slack(channel_id, initial_response_ts)
 
         # Delete the status messages
         if initial_footer_ts:
@@ -224,7 +219,7 @@ def delete_message_from_slack(channel_id, ts):
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
 
-def call_helper_program(helper_program_path, arguments_str, model):
+def call_helper_program(helper_program_path, arguments_str, conversation_history=[], model="gpt-4-turbo-preview"):
     # Determine the base directory of the helper_program
     base_dir = os.path.dirname(helper_program_path)
     # Check for the existence of a .venv/bin/python interpreter in that base directory
@@ -232,6 +227,7 @@ def call_helper_program(helper_program_path, arguments_str, model):
 
     command = [helper_program_path] if not os.path.exists(venv_python_path) else [venv_python_path, helper_program_path]
     command += [arguments_str]
+    command += [conversation_history]
     command += [model]
 
     try:
@@ -434,7 +430,7 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, c
     status_ts = post_message_to_slack(channel_id, status_message, thread_ts)
 
     # Call the helper program and return its response
-    response = call_helper_program(helper_program_path, arguments_str, conversation_history, model)
+    response = call_helper_program(helper_program_path=helper_program_path, arguments_str=arguments_str, conversation_history=conversation_history, model=model)
     return response, status_ts
 
 if __name__ == "__main__":
