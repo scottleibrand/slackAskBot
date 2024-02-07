@@ -365,20 +365,22 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
         tools=tools_parameter
     )
 
-    # Debugging: Check the entire response for tool calls
+    # Debugging: Print the entire GPT response
     print("GPT Response:", response)
 
-    if response.choices[0].message.get("tool_calls"):
+    # Check for tool calls in the response
+    tool_calls = getattr(response.choices[0].message, 'tool_calls', None)
+    if tool_calls:
         print("Tool calls found in response.")
-        for tool_call in response.choices[0].message["tool_calls"]:
-            function_name = tool_call["function"]["name"]
-            arguments = json.loads(tool_call["function"]["arguments"])
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            arguments = json.loads(tool_call.function.arguments)
             print(f"Handling tool call: {function_name} with arguments: {arguments}")
             handle_function_call(function_name, arguments, channel_id, thread_ts)
-        return "Processing your request..."
     else:
         print("No tool calls found in response.")
 
+    # Handle the case where the message content is None
     answer = response.choices[0].message.content if response.choices[0].message.content else "No response content."
     return answer
 
