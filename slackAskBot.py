@@ -219,7 +219,7 @@ def delete_message_from_slack(channel_id, ts):
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
 
-def call_helper_program(helper_program_path, arguments_str, conversation_history=[], model="gpt-4-turbo-preview"):
+def call_helper_program(helper_program_path, arguments_str, conversation_str="", model="gpt-4-turbo-preview"):
     # Determine the base directory of the helper_program
     base_dir = os.path.dirname(helper_program_path)
     # Check for the existence of a .venv/bin/python interpreter in that base directory
@@ -227,7 +227,7 @@ def call_helper_program(helper_program_path, arguments_str, conversation_history
 
     command = [helper_program_path] if not os.path.exists(venv_python_path) else [venv_python_path, helper_program_path]
     command += [arguments_str]
-    command += [conversation_history]
+    command += [conversation_str]
     command += [model]
 
     try:
@@ -424,13 +424,14 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, c
 
     # Convert arguments to a format that can be passed to the helper program
     arguments_str = json.dumps(arguments)
+    conversation_str = json.dumps(conversation_history)
 
     # Post the status message to Slack
     status_message = f'Asking "{function_name}": "{arguments["question"]}" with {model}'
     status_ts = post_message_to_slack(channel_id, status_message, thread_ts)
 
     # Call the helper program and return its response
-    response = call_helper_program(helper_program_path=helper_program_path, arguments_str=arguments_str, conversation_history=conversation_history, model=model)
+    response = call_helper_program(helper_program_path=helper_program_path, arguments_str=arguments_str, conversation_str=conversation_str, model=model)
     return response, status_ts
 
 if __name__ == "__main__":
