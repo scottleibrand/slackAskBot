@@ -427,7 +427,7 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, m
     arguments_str = json.dumps(arguments)
 
     # Post the status message to Slack
-    status_message = f'Asking "{function_name}": "{arguments["question"]}"'
+    status_message = f'Asking "{function_name}": "{arguments["question"]}" with {model}'
     status_ts = post_message_to_slack(channel_id, status_message, thread_ts)
 
     # Call the helper program and return its response
