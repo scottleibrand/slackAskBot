@@ -235,7 +235,7 @@ def call_helper_program(helper_program_path, arguments_str, channel_id, thread_t
         # Execute the command
         result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
         output = result.stdout
-        print("Helper program output:", result)
+        print("Helper program output:", output)
 
         # For now, send the output back to the user in Slack
         post_message_to_slack(channel_id, output, thread_ts)
