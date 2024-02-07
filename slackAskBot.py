@@ -81,7 +81,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Generate initial response with GPT-3.5-turbo
             #print(conversation_history)
             try:
-                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
+                initial_response = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000)
                 # Modify the markdown to strip out the language specifier after the triple backticks
                 initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
                 print(initial_response)
@@ -100,7 +100,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             #print(conversation_history)
 
             # Enhance response with GPT-4-Turbo
-            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
+            enhanced_response = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview")
             # Modify the markdown to strip out the language specifier after the triple backticks
             enhanced_response = re.sub(r'```[a-zA-Z]+', '```', enhanced_response)
             print(enhanced_response)
