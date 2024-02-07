@@ -221,21 +221,14 @@ def delete_message_from_slack(channel_id, ts):
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
 
-def call_helper_program(helper_program_path, function_name, arguments_str, channel_id, thread_ts=None):
+def call_helper_program(helper_program_path, arguments_str, channel_id, thread_ts=None):
     # Determine the base directory of the helper_program
     base_dir = os.path.dirname(helper_program_path)
     # Check for the existence of a .venv/bin/python interpreter in that base directory
     venv_python_path = os.path.join(base_dir, '.venv', 'bin', 'python')
 
-    # Initialize command with the helper program path
-    command = [helper_program_path]
-
-    # If a virtual environment's Python interpreter exists, use it
-    if os.path.exists(venv_python_path):
-        command = [venv_python_path, helper_program_path]
-
-    # Append the function name and arguments as the last arguments
-    command += [function_name, arguments_str]
+    command = [helper_program_path] if not os.path.exists(venv_python_path) else [venv_python_path, helper_program_path]
+    command += [arguments_str]
 
     try:
         env = os.environ.copy()
@@ -372,18 +365,17 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
         tools=tools_parameter
     )
 
-    # Check whether the response includes any tool calls
+    # Check for tool calls in the response
     if "tool_calls" in response.choices[0].message:
-        print("tool_calls found")
         for tool_call in response.choices[0].message["tool_calls"]:
             function_name = tool_call["function"]["name"]
             arguments = json.loads(tool_call["function"]["arguments"])
             print(f"handle_function_call({function_name}, {arguments}, {channel_id}, {thread_ts})")
             handle_function_call(function_name, arguments, channel_id, thread_ts)
     else:
-        print(response.choices[0].message)
+        print("No tool calls found in response.")
 
-    answer = response.choices[0].message.content
+    answer = response.choices[0].message.content if response.choices[0].message.content else "Processing your request..."
     return answer
 
 def convert_functions_config_to_tools_parameter(functions_config):
