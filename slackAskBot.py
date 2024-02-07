@@ -221,7 +221,7 @@ def delete_message_from_slack(channel_id, ts):
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
 
-def call_helper_program(helper_program_path, arguments_str):
+def call_helper_program(helper_program_path, arguments_str, model):
     # Determine the base directory of the helper_program
     base_dir = os.path.dirname(helper_program_path)
     # Check for the existence of a .venv/bin/python interpreter in that base directory
@@ -229,6 +229,7 @@ def call_helper_program(helper_program_path, arguments_str):
 
     command = [helper_program_path] if not os.path.exists(venv_python_path) else [venv_python_path, helper_program_path]
     command += [arguments_str]
+    command += [model]
 
     try:
         env = os.environ.copy()
