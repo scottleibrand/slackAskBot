@@ -379,9 +379,9 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
             # Include the full conversation history in the arguments
-            arguments["conversation_history"] = conversation_history
+            #arguments["conversation_history"] = conversation_history
             # Pass the model argument to handle_function_call
-            answer, status_ts = handle_function_call(function_name, arguments, model=model, channel_id=channel_id, thread_ts=thread_ts)
+            answer, status_ts = handle_function_call(function_name, arguments, conversation_history, model=model, channel_id=channel_id, thread_ts=thread_ts)
     else:
         print("No tool calls found in response.")
         # Handle the case where the message content is None
@@ -416,7 +416,7 @@ def convert_functions_config_to_tools_parameter(functions_config):
 
     return tools
 
-def handle_function_call(function_name, arguments, channel_id, thread_ts=None, model="gpt-3.5-turbo-16k"):
+def handle_function_call(function_name, arguments, channel_id, thread_ts=None, conversation_history={}, model="gpt-3.5-turbo-16k"):
     # Find the helper program path from functions_config
     for func in functions_config:
         if func["name"] == function_name:
@@ -434,7 +434,7 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, m
     status_ts = post_message_to_slack(channel_id, status_message, thread_ts)
 
     # Call the helper program and return its response
-    response = call_helper_program(helper_program_path, arguments_str, model)
+    response = call_helper_program(helper_program_path, arguments_str, conversation_history, model)
     return response, status_ts
 
 if __name__ == "__main__":
