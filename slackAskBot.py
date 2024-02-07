@@ -365,6 +365,7 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
     conversation_history_with_system_message = [system_message] + conversation_history
 
     functions_parameter = convert_functions_config_to_openai_format(functions_config)
+    print(json.dumps(functions_parameter, indent=2))
 
     response = client.chat.completions.create(model=model,
         messages=conversation_history_with_system_message,
@@ -389,7 +390,7 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
 def convert_functions_config_to_openai_format(functions_config):
     openai_functions = []
     for func in functions_config:
-        # Initialize the function definition structure
+        # Construct the function definition according to the OpenAI API specification
         function_def = {
             "type": "function",
             "function": {
