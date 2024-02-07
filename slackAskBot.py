@@ -381,7 +381,7 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
             # Include the full conversation history in the arguments
             #arguments["conversation_history"] = conversation_history
             # Pass the model argument to handle_function_call
-            answer, status_ts = handle_function_call(function_name, arguments, conversation_history, model=model, channel_id=channel_id, thread_ts=thread_ts)
+            answer, status_ts = handle_function_call(function_name=function_name, arguments=arguments, conversation_history=conversation_history, model=model, channel_id=channel_id, thread_ts=thread_ts)
     else:
         print("No tool calls found in response.")
         # Handle the case where the message content is None
