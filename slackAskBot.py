@@ -380,6 +380,8 @@ def gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", max_to
             arguments = json.loads(tool_call["function"]["arguments"])
             print(f"handle_function_call({function_name}, {arguments}, {channel_id}, {thread_ts})")
             handle_function_call(function_name, arguments, channel_id, thread_ts)
+    else:
+        print(response.choices[0].message)
 
     answer = response.choices[0].message.content
     return answer
