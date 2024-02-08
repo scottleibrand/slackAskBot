@@ -54,7 +54,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     print(f"Channel/user name: {channel_name}")  # Print the channel name for debugging
 
     # Load channel-specific settings
-    system_prompt, please_wait_message, helper_program = load_channel_settings(channel_name)
+    system_prompt, please_wait_message = load_channel_settings(channel_name)
     #print(f"Using system_prompt: '{system_prompt}'")
     print(f"Using please_wait_message: '{please_wait_message}' for channel/user name: {channel_name}")
 
@@ -176,9 +176,7 @@ def load_channel_settings(channel_name):
         channel_config.get("please_wait_message", "Just a moment...")
     )
 
-    helper_program = channel_settings.get("helper_program")
-
-    return system_prompt, please_wait_message, helper_program
+    return system_prompt, please_wait_message
 
 def construct_conversation_history(messages, bot_user_id, user_id, current_text, thread_ts=None, ts=None):
     conversation_history = []
