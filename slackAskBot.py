@@ -317,15 +317,20 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
     }
     conversation_history_with_system_message = [system_message] + conversation_history
 
-    tools_parameter = convert_functions_config_to_tools_parameter(functions_config)
+    # Convert functions_config to tools parameter only if functions_config is not empty
+    tools_parameter = convert_functions_config_to_tools_parameter(functions_config) if functions_config else None
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=conversation_history_with_system_message,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        tools=tools_parameter
-    )
+    # Prepare the request payload, conditionally including 'tools' if tools_parameter is not None
+    request_payload = {
+        "model": model,
+        "messages": conversation_history_with_system_message,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if tools_parameter:
+        request_payload["tools"] = tools_parameter
+
+    response = client.chat.completions.create(**request_payload)
 
     # Debugging: Print the entire GPT response
     print("GPT Response:", response)
@@ -338,15 +343,11 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
         for tool_call in tool_calls:
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
-            # Include the full conversation history in the arguments
-            #arguments["conversation_history"] = conversation_history
-            # Pass the model argument to handle_function_call
             answer, status_ts = handle_function_call(function_name=function_name, arguments=arguments, conversation_history=conversation_history, model=model, channel_id=channel_id, thread_ts=thread_ts)
             answers += answer
         answer = answers
     else:
         print("No tool calls found in response.")
-        # Handle the case where the message content is None
         answer = response.choices[0].message.content if response.choices[0].message.content else "No response content."
 
     return answer, status_ts
