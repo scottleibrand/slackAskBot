@@ -54,7 +54,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     print(f"Channel/user name: {channel_name}")  # Print the channel name for debugging
 
     # Load channel-specific settings
-    system_prompt, please_wait_message, helper_program = load_channel_settings(channel_name)
+    system_prompt, please_wait_message = load_channel_settings(channel_name)
     #print(f"Using system_prompt: '{system_prompt}'")
     print(f"Using please_wait_message: '{please_wait_message}' for channel/user name: {channel_name}")
 
@@ -176,9 +176,7 @@ def load_channel_settings(channel_name):
         channel_config.get("please_wait_message", "Just a moment...")
     )
 
-    helper_program = channel_settings.get("helper_program")
-
-    return system_prompt, please_wait_message, helper_program
+    return system_prompt, please_wait_message
 
 def construct_conversation_history(messages, bot_user_id, user_id, current_text, thread_ts=None, ts=None):
     conversation_history = []
@@ -218,42 +216,6 @@ def delete_message_from_slack(channel_id, ts):
         app.client.chat_delete(channel=channel_id, ts=ts)
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
-
-def call_helper_program(helper_program_path, function, arguments_str, conversation_str="", model="gpt-4-turbo-preview"):
-    # Determine the base directory of the helper_program
-    base_dir = os.path.dirname(helper_program_path)
-    # Check for the existence of a .venv/bin/python interpreter in that base directory
-    venv_python_path = os.path.join(base_dir, '.venv', 'bin', 'python')
-
-    command = [helper_program_path] if not os.path.exists(venv_python_path) else [venv_python_path, helper_program_path]
-    command += [function]
-    command += [arguments_str]
-    command += [conversation_str]
-    command += [model]
-
-    try:
-        env = os.environ.copy()
-        # Execute the command
-        result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
-        output = result.stdout
-        print("Helper program output:", output)
-
-        return output  # Return the output instead of posting it to Slack
-    except subprocess.CalledProcessError as e:
-        print("Helper program failed with error:", e.stderr)  # Log the error output
-        error_message = f"Error executing the helper program: {e.stderr}"
-        return error_message
-    except Exception as e:
-        print(f"Unexpected error when calling helper program: {e}")
-        error_message = "Unexpected error when executing the helper program."
-        return error_message
-
-def handle_slack_api_error(e):
-    if e.response["error"] in ["missing_scope", "not_in_channel"]:
-        print(f"Slack API error due to missing permissions: {e.response['needed']}")
-        # Determine fallback behavior based on the context
-        return True  # Indicate that the error was handled
-    return False  # Indicate that the error was not handled and should be re-raised
 
 @app.event("message")
 def handle_message_events(body, logger):
@@ -424,7 +386,10 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, c
             break
     else:
         print(f"No helper program configured for function: {function_name}")
-        return
+        return "No helper program configured for this function.", None
+
+    if not helper_program_path:
+        return "Helper program path not found.", None
 
     # Convert arguments to a format that can be passed to the helper program
     arguments_str = json.dumps(arguments)
@@ -434,9 +399,30 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, c
     status_message = f'Asking "{function_name}": "{arguments["question"]}" with {model}'
     status_ts = post_message_to_slack(channel_id, status_message, thread_ts)
 
-    # Call the helper program and return its response
-    response = call_helper_program(helper_program_path=helper_program_path, function=function_name, arguments_str=arguments_str, conversation_str=conversation_str, model=model)
-    return response, status_ts
+    # Determine the base directory of the helper_program
+    base_dir = os.path.dirname(helper_program_path)
+    # Check for the existence of a .venv/bin/python interpreter in that base directory
+    venv_python_path = os.path.join(base_dir, '.venv', 'bin', 'python')
+
+    command = [helper_program_path] if not os.path.exists(venv_python_path) else [venv_python_path, helper_program_path]
+    command += [function_name, arguments_str, conversation_str, model]
+
+    try:
+        env = os.environ.copy()
+        # Execute the command
+        result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
+        output = result.stdout
+        print("Helper program output:", output)
+
+        return output, status_ts
+    except subprocess.CalledProcessError as e:
+        print("Helper program failed with error:", e.stderr)  # Log the error output
+        error_message = f"Error executing the helper program: {e.stderr}"
+        return error_message, status_ts
+    except Exception as e:
+        print(f"Unexpected error when calling helper program: {e}")
+        error_message = "Unexpected error when executing the helper program."
+        return error_message, status_ts
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
