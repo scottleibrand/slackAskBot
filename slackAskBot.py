@@ -34,82 +34,25 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Fetch the thread history if thread_ts is provided
     messages = []
     if thread_ts:
-        try:
-            history = app.client.conversations_replies(
-                channel=channel_id,
-                ts=thread_ts
-            )
-            messages = history['messages']
-        except SlackApiError as e:
-            if not handle_slack_api_error(e):
-                raise
+        messages = fetch_conversation_history(channel_id, thread_ts)
 
-
-    try:
-        channel_info = app.client.conversations_info(channel=channel_id)
-        # Check if the channel is a direct message channel
-        is_direct_message = channel_info['channel'].get('is_im', False)
-        if is_direct_message:
-            # Fetch the user's profile to get their name
-            user_info = app.client.users_info(user=user_id)
-            user_name = user_info['user']['real_name']  # You can also use 'name' or 'display_name' based on your preference
-            channel_name = user_name
-        else:
-            channel_name = channel_info['channel']['name']
-    except KeyError:
-        # Fallback if 'name' or other expected keys are missing
-        channel_name = "default"
-    except SlackApiError as e:
-        # Handle Slack API errors (e.g., missing permissions)
-        if not handle_slack_api_error(e):
-            raise
-        channel_name = "default"
-
+    # Determine channel or user name for settings
+    channel_name = determine_channel_or_user_name(channel_id, user_id)
     print(f"Channel/user name: {channel_name}")  # Print the channel name for debugging
 
-    # Load the channel configuration
-    channel_settings = channel_config.get(channel_name, {})
-
-    # Determine the system prompt based on the channel configuration or use the top-level default
-    system_prompt = channel_settings.get(
-        "system_prompt",
-		channel_config.get("system_prompt", "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned.")
-    )
-    helper_program = channel_settings.get("helper_program")
-
-	# Determine the custom "please_wait_message" based on the channel configuration or use the top-level default
-    please_wait_message = channel_settings.get(
-        "please_wait_message",
-        channel_config.get("please_wait_message", "Please wait for GPT-4...")
-    )
-
+    # Load channel-specific settings
+    system_prompt, please_wait_message, helper_program = load_channel_settings(channel_name)
     #print(f"Using system_prompt: '{system_prompt}'")
     print(f"Using please_wait_message: '{please_wait_message}' for channel/user name: {channel_name}")
 
-    # Construct the conversation history
-    conversation_history = []
-    bot_user_id = app.client.auth_test()["user_id"]  # Get the bot's user ID
-    for msg in messages:
-        # Skip bot's own status messages
-        if msg.get("user") == bot_user_id and "Let me ask GPT-4..." in msg.get("text", ""):
-            continue
-        # Check if the message is from the original user or the bot
-        role = "user" if msg.get("user") == user_id else "assistant"
-        content = msg.get("text")
-        if content:
-            conversation_history.append({"role": role, "content": content})
+    # Get the bot's user ID
+    bot_user_id = app.client.auth_test()["user_id"]
 
-    # Add the current message to the conversation history if it's not already included
-    if not thread_ts or thread_ts == ts:
-        conversation_history.append({"role": "user", "content": text})
+    # Construct the conversation history
+    conversation_history = construct_conversation_history(messages, bot_user_id, user_id, text, thread_ts, ts)
 
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
-    status_message_response = app.client.chat_postMessage(
-        channel=channel_id,
-        text=please_wait_message,
-        thread_ts=thread_ts
-    )
-    status_message_ts = status_message_response['ts']  # Capture the timestamp of the status message
+    status_message_ts = post_message_to_slack(channel_id, please_wait_message, thread_ts)
 
     def worker():
         # Check if a helper program is specified and call it
@@ -125,25 +68,96 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             response = re.sub(r'```[a-zA-Z]+', '```', raw_response)
 
         if response:
-            # Post the response
-            app.client.chat_postMessage(
-                channel=channel_id,
-                text=response,
-                thread_ts=thread_ts
-            )
+            post_message_to_slack(channel_id, response, thread_ts)
         # Delete the "Please wait for GPT-4..." status message
-        try:
-            app.client.chat_delete(
-                channel=channel_id,
-                ts=status_message_ts
-            )
-        except Exception as e:
-            print(f"Failed to delete status message: {e}")  # Debug print
+        delete_message_from_slack(channel_id, status_message_ts)
 
     # Start the worker thread
     thread = threading.Thread(target=worker)
     thread.start()
-    
+
+def fetch_conversation_history(channel_id, thread_ts):
+    try:
+        history = app.client.conversations_replies(channel=channel_id, ts=thread_ts)
+        return history['messages']
+    except SlackApiError as e:
+        print(f"Failed to fetch conversation history: {e}")
+        if not handle_slack_api_error(e):
+            raise
+        return []
+
+def determine_channel_or_user_name(channel_id, user_id):
+    try:
+        channel_info = app.client.conversations_info(channel=channel_id)
+        is_direct_message = channel_info['channel'].get('is_im', False)
+        if is_direct_message:
+            user_info = app.client.users_info(user=user_id)
+            return user_info['user']['real_name']
+        else:
+            return channel_info['channel']['name']
+    except KeyError:
+        # Fallback if 'name' or other expected keys are missing
+        channel_name = "default"
+    except SlackApiError as e:
+        print(f"Error fetching channel or user name: {e}")
+        return "default"
+
+def load_channel_settings(channel_name):
+    # Load the channel configuration
+    channel_settings = channel_config.get(channel_name, {})
+
+    # Determine the system prompt based on the channel configuration or use the top-level default
+    system_prompt = channel_settings.get(
+        "system_prompt",
+		channel_config.get("system_prompt", "You are a helpful assistant in a Slack workspace. Please format your responses for clear display within Slack by minimizing the use of markdown-formatted **bold** text and # headers in favor of Slack-compatible formatting. You do not yet have the ability to perform any actions other than responding directly to the user. The user can DM you, @ mention you in a channel you've been added to, or reply to a thread in which you are @ mentioned.")
+    )
+
+    # Determine the custom "please_wait_message" based on the channel configuration or use the top-level default
+    please_wait_message = channel_settings.get(
+        "please_wait_message",
+        channel_config.get("please_wait_message", "Please wait for GPT-4...")
+    )
+
+    helper_program = channel_settings.get("helper_program")
+
+    return system_prompt, please_wait_message, helper_program
+
+def construct_conversation_history(messages, bot_user_id, user_id, current_text, thread_ts=None, ts=None):
+    conversation_history = []
+    for msg in messages:
+        # Skip bot's own status messages
+        if msg.get("user") == bot_user_id and "Let me ask GPT-4..." in msg.get("text", ""):
+            continue
+        # Check if the message is from the original user or the bot
+        role = "user" if msg.get("user") == user_id else "assistant"
+        content = msg.get("text")
+        if content:
+            conversation_history.append({"role": role, "content": content})
+
+    # Add the current message to the conversation history if it's not already included
+    if not thread_ts or thread_ts == ts:
+        conversation_history.append({"role": "user", "content": current_text})
+
+    return conversation_history
+
+def post_message_to_slack(channel_id, text, thread_ts=None):
+    try:
+        response = app.client.chat_postMessage(
+            channel=channel_id,
+            text=text,
+            thread_ts=thread_ts
+        )
+        return response['ts']  # Return the timestamp of the posted message
+    except Exception as e:
+        print(f"Failed to post message to Slack: {e}")
+        return None
+
+def delete_message_from_slack(channel_id, ts):
+    try:
+        app.client.chat_delete(channel=channel_id, ts=ts)
+    except Exception as e:
+        print(f"Failed to delete message from Slack: {e}")
+
 def call_helper_program(helper_program_path, conversation_history, channel_id, thread_ts=None):
     # Convert conversation history to a string or a format the helper program expects
     conversation_str = json.dumps(conversation_history)
@@ -256,19 +270,6 @@ def handle_app_mention_events(body, logger):
     else:
         # If it's not a thread, respond to the @ mention
         ask_chatgpt(text, user_id, channel_id, ts)
-  
-
-# Listen for a "hello" message and respond with a greeting
-@app.message("hello")
-def say_hello(ack, logger, message):
-    logger.info("Got hello message")
-    print("Got hello message")
-    user = message["user"]
-    # Acknowledge the message request
-    ack()
-    # Send a greeting message as a direct message to the user
-    app.client.chat_postMessage(channel=f"@{user}", text=f"Hello <@{user}>!")
-
 
 @app.event("app_home_opened")
 def app_home_opened(ack, event, logger):
