@@ -46,7 +46,7 @@ Before you can run slackAskBot, you need to have the following:
 
 To start the bot, run the following command:
 
-   python slackAskBot.py
+   `python slackAskBot.py`
 
 Once the bot is running, you can interact with it in your Slack workspace by sending direct messages or mentioning the bot in channels where it has been invited.
 
@@ -56,4 +56,4 @@ Contributions are welcome! Feel free to open an issue or submit a pull request.
 
 ## License
 
-Distributed under the MIT License. See LICENSE for more information.
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
