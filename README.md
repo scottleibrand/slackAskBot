@@ -58,5 +58,3 @@ Contributions are welcome! Feel free to open an issue or submit a pull request.
 
 Distributed under the MIT License. See LICENSE for more information.
 ```
-
-This README.md provides a comprehensive overview of the slackAskBot's capabilities, installation, and configuration, reflecting the enhancements and features introduced by the recent pull requests.
