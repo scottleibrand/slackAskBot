@@ -72,6 +72,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         initial_header_ts = None
         initial_response_ts = None
         initial_footer_ts = None
+        initial_status_ts = None
 
         # Generate initial response with GPT-3.5-turbo
         #print(conversation_history)
