@@ -145,6 +145,13 @@ def fetch_conversation_history(channel_id, thread_ts):
             raise
         return []
 
+def handle_slack_api_error(e):
+    if e.response["error"] in ["missing_scope", "not_in_channel"]:
+        print(f"Slack API error due to missing permissions: {e.response['needed']}")
+        # Determine fallback behavior based on the context
+        return True  # Indicate that the error was handled
+    return False  # Indicate that the error was not handled and should be re-raised
+
 def determine_channel_or_user_name(channel_id, user_id):
     try:
         channel_info = app.client.conversations_info(channel=channel_id)
