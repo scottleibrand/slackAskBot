@@ -68,29 +68,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     status_message_ts = post_message_to_slack(channel_id, please_wait_message, thread_ts)
 
     def worker():
-        initial_header_ts = None
-        initial_response_ts = None
-        initial_footer_ts = None
-        initial_status_ts = None
-
-        # Generate initial response with GPT-3.5-turbo
-        try:
-            initial_response, initial_status_ts = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
-            # Modify the markdown to strip out the language specifier after the triple backticks
-            initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
-            print(initial_response)
-            # Post the GPT-3.5-turbo response and save its timestamp
-            initial_header_ts = post_message_to_slack(channel_id, "Initial GPT-3.5-Turbo response:", thread_ts)
-            initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
-            initial_footer_ts = post_message_to_slack(channel_id, "Checking that with GPT-4...", thread_ts)
-            # Append the initial GPT-3.5-turbo response to the conversation history
-            conversation_history.append({"role": "assistant", "content": f"GPT-3.5 response: {initial_response}"})
-
-            # Synthetic review process
-            synthetic_review = "Let’s review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS' in all caps. If the GPT-3.5 response needs to be completely replaced, don't refer to it: just respond with a new message, and the old one be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response', 'My mistake', or similar: just write a new and better response. If the GPT-3.5 response only needs clarification or elaboration, not correction, instead reply with 'ADDITIONAL RESPONSE: ' in all caps, followed by a follow-up message with any clarifications or elaborations we want to append to the last reply. If you can't tell for sure without a tool call whether the response is correct or not, go ahead and make the tool call."
-            conversation_history.append({"role": "assistant", "content": synthetic_review})
-        except Exception as e:
-            print(f"Error from GPT-3.5: {e}")
+        initial_header_ts, initial_response_ts, initial_footer_ts, initial_status_ts = generate_initial_response(conversation_history, system_prompt, channel_id, thread_ts)
 
         # Enhance response with GPT-4-Turbo
         enhanced_response, enhanced_response_ts = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
@@ -130,6 +108,27 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Start the worker thread
     thread = threading.Thread(target=worker)
     thread.start()
+
+def generate_initial_response(conversation_history, system_prompt, channel_id, thread_ts):
+    initial_header_ts = None
+    initial_response_ts = None
+    initial_footer_ts = None
+    initial_status_ts = None
+
+    try:
+        initial_response, initial_status_ts = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
+        initial_response = re.sub(r'```[a-zA-Z]+', '```', initial_response)
+        print(initial_response)
+        initial_header_ts = post_message_to_slack(channel_id, "Initial GPT-3.5-Turbo response:", thread_ts)
+        initial_response_ts = post_message_to_slack(channel_id, f"{initial_response}", thread_ts)
+        initial_footer_ts = post_message_to_slack(channel_id, "Checking that with GPT-4...", thread_ts)
+        conversation_history.append({"role": "assistant", "content": f"GPT-3.5 response: {initial_response}"})
+        synthetic_review = "Let's review the GPT-3.5 response and determine whether any corrections, clarifications, or elaborations are required. If no changes are needed, reply with 'GOOD AS-IS' in all caps. If the GPT-3.5 response needs to be completely replaced, don't refer to it: just respond with a new message, and the old one be deleted and not visible. DO NOT make reference to 'a misunderstanding in my previous response', 'My mistake', or similar: just write a new and better response. If the GPT-3.5 response only needs clarification or elaboration, not correction, instead reply with 'ADDITIONAL RESPONSE: ' in all caps, followed by a follow-up message with any clarifications or elaborations we want to append to the last reply. If you can't tell for sure without a tool call whether the response is correct or not, go ahead and make the tool call."
+        conversation_history.append({"role": "assistant", "content": synthetic_review})
+    except Exception as e:
+        print(f"Error from GPT-3.5: {e}")
+
+    return initial_header_ts, initial_response_ts, initial_footer_ts, initial_status_ts
 
 def retrieve_snippet_or_file_content(snippet_or_file):
     url = snippet_or_file['url_private']
