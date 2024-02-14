@@ -204,6 +204,8 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
                     else:
                         print(f"Failed to retrieve file content from URL: {url}")
                         print(f"Response status code: {response.status_code}")
+                else:
+                    print(f"Not adding file type {file['filetype']}")
 
     # Add the current message to the conversation history if it's not already included
     if not thread_ts or thread_ts == ts:
