@@ -1,3 +1,4 @@
 slack-bolt
 slack-sdk
 openai
+requests

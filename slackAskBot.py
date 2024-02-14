@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import requests
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -49,13 +50,15 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         messages = fetch_conversation_history(channel_id, thread_ts)
         #print(f"DEBUG: Messages fetched from thread: {messages}")
 
+    # Retrieve snippets or files from the messages
+    snippets_or_files = retrieve_snippets_or_files(messages)
+
     # Determine channel or user name for settings
     channel_name = determine_channel_or_user_name(channel_id, user_id)
     print(f"Channel/user name: {channel_name}")  # Print the channel name for debugging
 
     # Load channel-specific settings
     system_prompt, please_wait_message = load_channel_settings(channel_name)
-    #print(f"Using system_prompt: '{system_prompt}'")
     print(f"Using please_wait_message: '{please_wait_message}' for channel/user name: {channel_name}")
 
     # Get the bot's user ID
@@ -63,7 +66,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 
     # Construct the conversation history
     conversation_history = construct_conversation_history(messages, bot_user_id, user_id, text, thread_ts, ts)
-    #print(f"DEBUG: Constructed conversation history: {conversation_history}")
 
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
     status_message_ts = post_message_to_slack(channel_id, please_wait_message, thread_ts)
@@ -74,8 +76,15 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         initial_footer_ts = None
         initial_status_ts = None
 
+        # Retrieve snippet or file content
+        for snippet_or_file in snippets_or_files:
+            content = retrieve_snippet_or_file_content(snippet_or_file)
+            # Process the content as needed
+            processed_content = process_snippet_or_file_content(content)
+            # Append the processed content to the conversation history
+            conversation_history.append({"role": "assistant", "content": processed_content})
+
         # Generate initial response with GPT-3.5-turbo
-        #print(conversation_history)
         try:
             initial_response, initial_status_ts = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
             # Modify the markdown to strip out the language specifier after the triple backticks
@@ -93,7 +102,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             conversation_history.append({"role": "assistant", "content": synthetic_review})
         except Exception as e:
             print(f"Error from GPT-3.5: {e}")
-        #print(conversation_history)
 
         # Enhance response with GPT-4-Turbo
         enhanced_response, enhanced_response_ts = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
@@ -133,6 +141,36 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Start the worker thread
     thread = threading.Thread(target=worker)
     thread.start()
+
+def retrieve_snippets_or_files(messages):
+    snippets_or_files_info = []
+    for message in messages:
+        if 'files' in message:
+            for file in message['files']:
+                if file['filetype'] in ['text', 'python', 'javascript', 'html']:  # Add other file types as needed
+                    snippets_or_files_info.append({
+                        'id': file['id'],
+                        'name': file.get('name'),
+                        'filetype': file['filetype'],
+                        'url_private': file['url_private']
+                    })
+    return snippets_or_files_info
+
+def retrieve_snippet_or_file_content(snippet_or_file):
+    url = snippet_or_file['url_private']
+    headers = {"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN']}"}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.text
+    else:
+        print(f"Failed to retrieve file content: {response.status_code}")
+        return ""
+
+def process_snippet_or_file_content(content):
+    # This is a placeholder function. You can process the content as needed here.
+    # For example, you might want to clean up the text, parse code, etc.
+    # For simplicity, this example just returns the content as is.
+    return content
 
 def fetch_conversation_history(channel_id, thread_ts):
     try:
