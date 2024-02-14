@@ -129,19 +129,6 @@ def generate_initial_response(conversation_history, system_prompt, channel_id, t
 
     return initial_header_ts, initial_response_ts, initial_footer_ts, initial_status_ts
 
-def retrieve_snippet_or_file_content(snippet_or_file):
-    url = snippet_or_file['url_private']
-    headers = {"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN']}"}
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        print(f"Successfully retrieved file content from URL: {url}")
-        #print(f"Response: {response.text}")
-        return response.text
-    else:
-        print(f"Failed to retrieve file content from URL: {url}")
-        print(f"Response status code: {response.status_code}")
-        return ""
-
 def fetch_conversation_history(channel_id, thread_ts):
     try:
         history = app.client.conversations_replies(channel=channel_id, ts=thread_ts)
@@ -212,7 +199,7 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
                     response = requests.get(url, headers=headers)
                     if response.status_code == 200:
                         print(f"Successfully retrieved file content from URL: {url}")
-                        print(f"Response: {response.text}")
+                        #print(f"Response: {response.text}")
                         conversation_history.append({"role": role, "content": response.text})
                     else:
                         print(f"Failed to retrieve file content from URL: {url}")
