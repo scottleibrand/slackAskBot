@@ -161,9 +161,12 @@ def retrieve_snippet_or_file_content(snippet_or_file):
     headers = {"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN']}"}
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
+        print(f"Successfully retrieved file content from URL: {url}")
+        print(f"Response: {response.text}")
         return response.text
     else:
-        print(f"Failed to retrieve file content: {response.status_code}")
+        print(f"Failed to retrieve file content from URL: {url}")
+        print(f"Response status code: {response.status_code}")
         return ""
 
 def process_snippet_or_file_content(content):
