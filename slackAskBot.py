@@ -223,7 +223,6 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
     # Add the current message to the conversation history if it's not already included
     if not thread_ts or thread_ts == ts:
         conversation_history.append({"role": "user", "content": current_text})
-    print(conversation_history)
 
     return conversation_history
 
