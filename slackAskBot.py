@@ -350,7 +350,7 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
     except Exception as e:
         error_message = str(e)
         print(f"Error from GPT: {error_message}")
-        if "context length" in error_message:
+        if "context length" in error_message or "Request too large" in error_message:
             if model == "gpt-3.5-turbo-16k":
                 post_message_to_slack(channel_id, "This thread is too long for GPT-3.5. Please wait for GPT-4.", thread_ts)
             elif model == "gpt-4-turbo-preview":
