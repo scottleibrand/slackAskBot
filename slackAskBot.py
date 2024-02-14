@@ -347,6 +347,13 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
     if tools_parameter:
         request_payload["tools"] = tools_parameter
 
+    # Serialize the request payload to JSON for size check
+    serialized_payload = json.dumps(request_payload)
+    if len(serialized_payload.encode('utf-8')) > 128 * 1024:  # Check if the payload exceeds 128 KB
+        print("Payload exceeds 128 KB limit.")
+        post_message_to_slack(channel_id, "This thread is too long. Please start another shorter thread.", thread_ts)
+        return "The request cannot be processed because it exceeds the 128 KB limit.", None
+
     try:
         response = client.chat.completions.create(**request_payload)
     except Exception as e:
