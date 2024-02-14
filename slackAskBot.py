@@ -48,7 +48,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     messages = []
     if thread_ts:
         messages = fetch_conversation_history(channel_id, thread_ts)
-        #print(f"DEBUG: Messages fetched from thread: {messages}")
 
     # Determine channel or user name for settings
     channel_name = determine_channel_or_user_name(channel_id, user_id)
@@ -136,7 +135,7 @@ def retrieve_snippet_or_file_content(snippet_or_file):
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         print(f"Successfully retrieved file content from URL: {url}")
-        print(f"Response: {response.text}")
+        #print(f"Response: {response.text}")
         return response.text
     else:
         print(f"Failed to retrieve file content from URL: {url}")
@@ -146,7 +145,6 @@ def retrieve_snippet_or_file_content(snippet_or_file):
 def fetch_conversation_history(channel_id, thread_ts):
     try:
         history = app.client.conversations_replies(channel=channel_id, ts=thread_ts)
-        #print(f"DEBUG: Fetched conversation history for channel {channel_id} and thread {thread_ts}. Messages count: {len(history['messages'])}")
         return history['messages']
     except SlackApiError as e:
         print(f"Failed to fetch conversation history: {e}")
