@@ -50,9 +50,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         messages = fetch_conversation_history(channel_id, thread_ts)
         #print(f"DEBUG: Messages fetched from thread: {messages}")
 
-    # Retrieve snippets or files from the messages
-    snippets_or_files = retrieve_snippets_or_files(messages)
-
     # Determine channel or user name for settings
     channel_name = determine_channel_or_user_name(channel_id, user_id)
     print(f"Channel/user name: {channel_name}")  # Print the channel name for debugging
@@ -75,15 +72,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         initial_response_ts = None
         initial_footer_ts = None
         initial_status_ts = None
-
-        # Retrieve snippet or file content
-        for snippet_or_file in snippets_or_files:
-            content = retrieve_snippet_or_file_content(snippet_or_file)
-            # Process the content as needed
-            processed_content = process_snippet_or_file_content(content)
-            # Append the processed content to the conversation history
-            conversation_history.append({"role": "user", "content": processed_content})
-            print(conversation_history)
 
         # Generate initial response with GPT-3.5-turbo
         try:
@@ -143,20 +131,6 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     thread = threading.Thread(target=worker)
     thread.start()
 
-def retrieve_snippets_or_files(messages):
-    snippets_or_files_info = []
-    for message in messages:
-        if 'files' in message:
-            for file in message['files']:
-                if file['filetype'] in ['text', 'python', 'javascript', 'html']:  # Add other file types as needed
-                    snippets_or_files_info.append({
-                        'id': file['id'],
-                        'name': file.get('name'),
-                        'filetype': file['filetype'],
-                        'url_private': file['url_private']
-                    })
-    return snippets_or_files_info
-
 def retrieve_snippet_or_file_content(snippet_or_file):
     url = snippet_or_file['url_private']
     headers = {"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN']}"}
@@ -169,12 +143,6 @@ def retrieve_snippet_or_file_content(snippet_or_file):
         print(f"Failed to retrieve file content from URL: {url}")
         print(f"Response status code: {response.status_code}")
         return ""
-
-def process_snippet_or_file_content(content):
-    # This is a placeholder function. You can process the content as needed here.
-    # For example, you might want to clean up the text, parse code, etc.
-    # For simplicity, this example just returns the content as is.
-    return content
 
 def fetch_conversation_history(channel_id, thread_ts):
     try:
@@ -239,10 +207,24 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
         content = msg.get("text")
         if content:
             conversation_history.append({"role": role, "content": content})
+        if 'files' in msg:
+            for file in msg['files']:
+                if file['filetype'] in ['text', 'python', 'javascript', 'html']:  # Add other file types as needed
+                    url = file['url_private']
+                    headers = {"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN']}"}
+                    response = requests.get(url, headers=headers)
+                    if response.status_code == 200:
+                        print(f"Successfully retrieved file content from URL: {url}")
+                        print(f"Response: {response.text}")
+                        conversation_history.append({"role": role, "content": response.text})
+                    else:
+                        print(f"Failed to retrieve file content from URL: {url}")
+                        print(f"Response status code: {response.status_code}")
 
     # Add the current message to the conversation history if it's not already included
     if not thread_ts or thread_ts == ts:
         conversation_history.append({"role": "user", "content": current_text})
+    print(conversation_history)
 
     return conversation_history
 
