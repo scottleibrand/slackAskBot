@@ -193,7 +193,7 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
             conversation_history.append({"role": role, "content": content})
         if 'files' in msg:
             for file in msg['files']:
-                if file['filetype'] in ['text', 'python', 'javascript', 'html']:  # Add other file types as needed
+                if file['filetype'] in ['text', 'python', 'javascript', 'html', 'diff']:  # Add other file types as needed
                     url = file['url_private']
                     headers = {"Authorization": f"Bearer {os.environ['SLACK_BOT_TOKEN']}"}
                     response = requests.get(url, headers=headers)
