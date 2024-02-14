@@ -82,7 +82,8 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             # Process the content as needed
             processed_content = process_snippet_or_file_content(content)
             # Append the processed content to the conversation history
-            conversation_history.append({"role": "assistant", "content": processed_content})
+            conversation_history.append({"role": "user", "content": processed_content})
+            print(conversation_history)
 
         # Generate initial response with GPT-3.5-turbo
         try:
