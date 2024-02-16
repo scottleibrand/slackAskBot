@@ -26,6 +26,7 @@ except json.JSONDecodeError:
     print("Invalid JSON in channel_config.json. Using default configuration.")
     channel_config = {}  # Use an empty dict or a default configuration
 
+
 def load_functions_config():
     try:
         with open('functions.json', 'r') as file:
@@ -37,7 +38,9 @@ def load_functions_config():
         print("Invalid JSON in functions.json.")
         return []
 
+
 functions_config = load_functions_config()
+
 
 def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     # Remove any @mentions from the query
@@ -47,7 +50,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     messages = []
     if thread_ts:
         messages = fetch_conversation_history(channel_id, thread_ts)
-        #print(f"DEBUG: Messages fetched from thread: {messages}")
+        # print(f"DEBUG: Messages fetched from thread: {messages}")
 
     # Determine channel or user name for settings
     channel_name = determine_channel_or_user_name(channel_id, user_id)
@@ -55,7 +58,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 
     # Load channel-specific settings
     system_prompt, please_wait_message = load_channel_settings(channel_name)
-    #print(f"Using system_prompt: '{system_prompt}'")
+    # print(f"Using system_prompt: '{system_prompt}'")
     print(f"Using please_wait_message: '{please_wait_message}' for channel/user name: {channel_name}")
 
     # Get the bot's user ID
@@ -63,7 +66,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
 
     # Construct the conversation history
     conversation_history = construct_conversation_history(messages, bot_user_id, user_id, text, thread_ts, ts)
-    #print(f"DEBUG: Constructed conversation history: {conversation_history}")
+    # print(f"DEBUG: Constructed conversation history: {conversation_history}")
 
     # Send a message to indicate that GPT-4 is working on the request and capture the timestamp
     status_message_ts = post_message_to_slack(channel_id, please_wait_message, thread_ts)
@@ -75,7 +78,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
         initial_status_ts = None
 
         # Generate initial response with GPT-3.5-turbo
-        #print(conversation_history)
+        # print(conversation_history)
         try:
             initial_response, initial_status_ts = gpt(conversation_history, system_prompt, model="gpt-3.5-turbo-16k", max_tokens=1000, channel_id=channel_id, thread_ts=thread_ts)
             # Modify the markdown to strip out the language specifier after the triple backticks
@@ -93,7 +96,7 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
             conversation_history.append({"role": "assistant", "content": synthetic_review})
         except Exception as e:
             print(f"Error from GPT-3.5: {e}")
-        #print(conversation_history)
+        # print(conversation_history)
 
         # Enhance response with GPT-4-Turbo
         enhanced_response, enhanced_response_ts = gpt(conversation_history, system_prompt, model="gpt-4-turbo-preview", channel_id=channel_id, thread_ts=thread_ts)
@@ -134,10 +137,11 @@ def ask_chatgpt(text, user_id, channel_id, thread_ts=None, ts=None):
     thread = threading.Thread(target=worker)
     thread.start()
 
+
 def fetch_conversation_history(channel_id, thread_ts):
     try:
         history = app.client.conversations_replies(channel=channel_id, ts=thread_ts)
-        #print(f"DEBUG: Fetched conversation history for channel {channel_id} and thread {thread_ts}. Messages count: {len(history['messages'])}")
+        # print(f"DEBUG: Fetched conversation history for channel {channel_id} and thread {thread_ts}. Messages count: {len(history['messages'])}")
         return history['messages']
     except SlackApiError as e:
         print(f"Failed to fetch conversation history: {e}")
@@ -145,12 +149,14 @@ def fetch_conversation_history(channel_id, thread_ts):
             raise
         return []
 
+
 def handle_slack_api_error(e):
     if e.response["error"] in ["missing_scope", "not_in_channel"]:
         print(f"Slack API error due to missing permissions: {e.response['needed']}")
         # Determine fallback behavior based on the context
         return True  # Indicate that the error was handled
     return False  # Indicate that the error was not handled and should be re-raised
+
 
 def determine_channel_or_user_name(channel_id, user_id):
     try:
@@ -167,6 +173,7 @@ def determine_channel_or_user_name(channel_id, user_id):
     except SlackApiError as e:
         print(f"Error fetching channel or user name: {e}")
         return "default"
+
 
 def load_channel_settings(channel_name):
     # Load the channel configuration
@@ -186,12 +193,13 @@ def load_channel_settings(channel_name):
 
     return system_prompt, please_wait_message
 
+
 def construct_conversation_history(messages, bot_user_id, user_id, current_text, thread_ts=None, ts=None):
     conversation_history = []
     for msg in messages:
         # Skip bot's own status messages
-        #if msg.get("user") == bot_user_id and "Let me ask GPT-4..." in msg.get("text", ""):
-            #continue
+        # if msg.get("user") == bot_user_id and "Let me ask GPT-4..." in msg.get("text", ""):
+        #     continue
         # Check if the message is from the original user or the bot
         role = "user" if msg.get("user") == user_id else "assistant"
         content = msg.get("text")
@@ -203,6 +211,7 @@ def construct_conversation_history(messages, bot_user_id, user_id, current_text,
         conversation_history.append({"role": "user", "content": current_text})
 
     return conversation_history
+
 
 def post_message_to_slack(channel_id, text, thread_ts=None):
     if not text:  # Check if text is empty or None
@@ -219,11 +228,13 @@ def post_message_to_slack(channel_id, text, thread_ts=None):
         print(f"Failed to post message to Slack: {e}")
         return None
 
+
 def delete_message_from_slack(channel_id, ts):
     try:
         app.client.chat_delete(channel=channel_id, ts=ts)
     except Exception as e:
         print(f"Failed to delete message from Slack: {e}")
+
 
 @app.event("message")
 def handle_message_events(body, logger):
@@ -266,6 +277,7 @@ def handle_message_events(body, logger):
     else:
         logger.info("Ignored event: not a user message or has subtype")
 
+
 @app.event("app_mention")
 def handle_app_mention_events(body, logger):
     logger.info(body)
@@ -298,6 +310,7 @@ def handle_app_mention_events(body, logger):
         # If it's not a thread, respond to the @ mention
         ask_chatgpt(text, user_id, channel_id, ts)
 
+
 @app.event("app_home_opened")
 def app_home_opened(ack, event, logger):
     # Acknowledge the event request
@@ -314,6 +327,7 @@ def app_home_opened(ack, event, logger):
         text=f"Hello! Welcome to my Slack app. What can I help you with today?"
     )
     logger.info(response)
+
 
 def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="gpt-4-turbo-preview", max_tokens=3000, temperature=0):
     api_key = os.environ["OPENAI_API_KEY"]
@@ -360,6 +374,7 @@ def gpt(conversation_history, system_prompt, channel_id, thread_ts=None, model="
 
     return answer, status_ts
 
+
 def convert_functions_config_to_tools_parameter(functions_config):
     tools = []
     for func in functions_config:
@@ -376,16 +391,32 @@ def convert_functions_config_to_tools_parameter(functions_config):
             },
         }
 
-        for param_name, param_type in func.get("parameters", {}).items():
-            tool_def["function"]["parameters"]["properties"][param_name] = {
-                "type": param_type,
-                "description": f"The {param_name}",
-            }
-            tool_def["function"]["parameters"]["required"].append(param_name)
+        for param_name, param_details in func.get("parameters", {}).items():
+            if type(param_details) == str:
+                # Backwards Compatibility
+                tool_def["function"]["parameters"]["properties"][param_name] = {
+                    "type": param_details,
+                    "description": f"The {param_name}",
+                }
+                tool_def["function"]["parameters"]["required"].append(param_name)
+
+            else if type(param_details) == dict:
+                # New Functionality, allow description and required for params
+                tool_def["function"]["parameters"]["properties"][param_name] = {
+                    "type": param_details.get("type", "string"),
+                    "description": param_details.get("description", f"The {param_name}"),
+                }
+
+                if param_details.get("enum"):
+                    tool_def["function"]["parameters"]["properties"][param_name]["enum"] = enum
+
+                if param_details.get("required", True):
+                    tool_def["function"]["parameters"]["required"].append(param_name)
 
         tools.append(tool_def)
 
     return tools
+
 
 def handle_function_call(function_name, arguments, channel_id, thread_ts=None, conversation_history={}, model="gpt-3.5-turbo-16k"):
     # Find the helper program path from functions_config
@@ -432,6 +463,7 @@ def handle_function_call(function_name, arguments, channel_id, thread_ts=None, c
         print(f"Unexpected error when calling helper program: {e}")
         error_message = "Unexpected error when executing the helper program."
         return error_message, status_ts
+
 
 if __name__ == "__main__":
     # Turn on INFO logging to see what's happening
