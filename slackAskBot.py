@@ -406,6 +406,10 @@ def convert_functions_config_to_tools_parameter(functions_config):
                     "type": param_details.get("type", "string"),
                     "description": param_details.get("description", f"The {param_name}"),
                 }
+
+                if param_details.get("enum"):
+                    tool_def["function"]["parameters"]["properties"][param_name]["enum"] = enum
+
                 if param_details.get("required", True):
                     tool_def["function"]["parameters"]["required"].append(param_name)
 
