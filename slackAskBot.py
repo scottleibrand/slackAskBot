@@ -376,12 +376,23 @@ def convert_functions_config_to_tools_parameter(functions_config):
             },
         }
 
-        for param_name, param_type in func.get("parameters", {}).items():
-            tool_def["function"]["parameters"]["properties"][param_name] = {
-                "type": param_type,
-                "description": f"The {param_name}",
-            }
-            tool_def["function"]["parameters"]["required"].append(param_name)
+        for param_name, param_details in func.get("parameters", {}).items():
+            if type(param_details) == str:
+                # Backwards Compatibility
+                tool_def["function"]["parameters"]["properties"][param_name] = {
+                    "type": param_details,
+                    "description": f"The {param_name}",
+                }
+                tool_def["function"]["parameters"]["required"].append(param_name)
+
+            else if type(param_details) == dict:
+                # New Functionality, allow description and required for params
+                tool_def["function"]["parameters"]["properties"][param_name] = {
+                    "type": param_details.get("type", "string"),
+                    "description": param_details.get("description", f"The {param_name}"),
+                }
+                if param_details.get("required", True):
+                    tool_def["function"]["parameters"]["required"].append(param_name)
 
         tools.append(tool_def)
 
